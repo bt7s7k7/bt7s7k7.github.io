@@ -1,0 +1,71 @@
+.console {
+	color:yellow;
+	background-color:black
+}
+
+.monospace {
+	font-family:"Lucida Console"
+}
+
+.center {
+	margin:0 auto;
+}
+
+.textcenter {
+	text-align:center;
+}
+
+.border {
+	border:solid 1px black
+}
+
+.fill {
+	height:100%;
+	width:100%
+}
+.fillH {
+	height:100%;
+}
+.fillW {
+	width:100%
+}
+
+.S500x500 {
+	height:500px;
+	width:500px;
+}
+
+.noresize {
+	resize: none;
+}
+
+.fullpage {
+	height:100%;
+	width:100%;
+	position:absolute;
+	top:0px;
+	height:0px
+}
+
+.S10W {
+	width:10px;
+}
+.S10H {
+	height:10px;
+}
+.S20W {
+	width:20px;
+}
+.S20H {
+	height:20px;
+}
+
+table,td, th, tr {
+	border: 1px black solid;
+	margin : 0px;
+	border-collapse: collapse;
+}
+
+.pixelate {
+    image-rendering: pixelated;
+}
