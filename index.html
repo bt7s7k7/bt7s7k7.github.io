@@ -1,14 +1,57 @@
 <html>
 	<head>
 		<script src="stuff/bUtils.js"></script>
+		<script src="stuff/canvas.js"></script>
 		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
 		<script>
+			var ctx
+			var gallImgs = [
+				"aThing.png",
+				"atlas.png",
+				"Land001.bmp",
+				"scr00001.jpg",
+				"mandala.png",
+				"scr00006.jpg"
+			]
+			var gallID = 0
 			function setup() {
-				
+				E.jsW.hidden = true;
+				ctx = new CanvasUtil(B.canvas)
+				setInterval(()=>{
+					gallID++
+					if (gallID > gallImgs.length - 1) {
+						gallID = 0;
+					}
+					var img = new Image()
+					img.onload = ()=>{
+						var wid = (img.width / img.height) * 500
+						ctx.setSize([wid,500])
+						ctx.load("gallery/" + gallImgs[gallID],[0,0],[wid,500])
+					}
+					img.src = "gallery/" + gallImgs[gallID]
+					
+				},5000)
+				ctx.load("gallery/" + gallImgs[0],[0,0],[500,500])
 			}
 		</script>
 	</head>
-	<body>
-		
+	<body style="background-color:black">
+		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden/>
+		<img src="stuff/logo.png" style="position:absolute;height:200px;width:200px;top:100px;left:275px" />
+		<h1 style="position:absolute;color:white;top:220px;left:485px">Work in progress</h1>
+		<h1 style="color:black;position:absolute;top:75px;left:485px;font-size:100px;color:yellow">bt7s7k7</h1>
+		<>
+		<section id="text" style="color:white;position:relative;top:375">
+			<h1 style="color:red" id="jsW">Please, enable your JavaScript / Prosím, povolte svoj JavaScript<br /></h1>
+			<h1>Links / Odkazy</h1>
+			<h3>
+				<a href="https://www.youtube.com/channel/UC6L4aSMM7i36iaLEsK3NThQ" style="color:yellow;text-decoration:none">Youtube</a><br />
+				<a href="https://github.com/bt7s7k7" style="color:yellow;text-decoration:none">GitHub</a><br />
+				<a href="index.html" style="color:yellow;text-decoration:none">Main Page / Hlavná Stránka</a><br />
+				<a href="zbierka.html" style="color:yellow;text-decoration:none">Zbierka</a><br />
+			</h3>
+			<h1>Galery / Galéria</h1>
+			<canvas class="pixelate" height="500" width="500" style="border:1px solid yellow"><h1 style="color:red">HTML5 Needed</h1></canvas>
+		</section>
 	</body>
 </html>

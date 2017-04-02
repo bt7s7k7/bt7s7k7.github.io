@@ -59,11 +59,11 @@ function CanvasUtil(canvas) {
 		return this
 	} 
 	
-	this.load = function(str) {
+	this.load = function(str,pos = [0,0],size = [this.canvas.canvas.width,this.canvas.canvas.height]) {
 		var img = new Image()
 		img.src = str
 		img.onload = ()=>{
-			this.canvas.drawImage(img,0,0)
+			this.canvas.drawImage(img,pos[0],pos[1],size[0],size[1])
 		}
 		return this
 	}
