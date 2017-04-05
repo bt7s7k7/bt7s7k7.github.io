@@ -1,0 +1,166 @@
+<html>
+	<head>
+		<script src="stuff/bUtils.js"></script>
+		<script src="stuff/canvas.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		<script>
+			var ctx
+			var player
+			var groundCheck
+			var moveBuffer = 0
+			var vertSpeed = 0
+			var moveSpeed = 0.4
+			var jumpForce = 1.5
+			var gravity = 0.1
+			var finish
+			var pointer
+			var levelEnd = false
+			var defLevel = {world:[
+				[[-8,14],[8,16]],
+				[[-6,14],[-8,-24]],
+				[[-7,-13],[30,-17]],
+				[[-7,-13],[30,-17]],
+				[[45,-13],[71,-31]],
+				[[6,16],[8,26]],
+				[[8,24],[69,26]],
+				[[69,26],[71,-17]],
+				[[15,14],[20,10]],
+				[[25,10],[30,6]],
+				[[35,10],[60,6]],
+				[[45,1],[50,-3]],
+				[[40,-3],[45,-7]],
+				[[35,-10],[40,-14]],
+				[[-7,-17],[-1,-24]],
+				[[-19,-31],[-21,14]],
+				[[-21,14],[-8,16]],
+				[[-21,-31],[71,-33]]
+			],spawn:[0,0],finish:[-16,10]}
+			var winLevel = {spawn:[18,57],finish:[74,61],world:[[[13,21],[15,67]],[[19,42],[21,44]],[[23,42],[25,44]],[[21,44],[23,50]],
+			[[29,42],[31,44]],[[27,44],[29,49]],[[29,49],[31,50]],[[31,44],[33,49]],[[35,42],[37,49]],[[37,49],[40,50]],[[40,42],[42,49]],
+			[[49,42],[51,49]],[[51,49],[56,50]],[[53,42],[54,49]],[[56,42],[58,49]],[[62,42],[66,43]],[[61,43],[62,48]],[[62,48],[66,49]],[[66,43],
+			[67,48]],[[69,42],[70,49]],[[70,42],[72,45]],[[72,45],[75,48]],[[75,42],[76,49]],[[15,65],[78,67]],[[78,66],[80,66]],[[78,19],[81,67]]]}
+			var levelBundle = null
+			var levelBundleActive = true
+			var levelBundleId = 0
+			function setup() {
+				ctx = new CanvasUtil(B.canvas)
+				levelBundle = JSON.parse(E.bundle.innerText)
+				player = ctx.addSprite([0,0],[4,4],colors.white)
+				finish = ctx.addSprite([0,0],[4,4],colors.green,false)
+				loadLevel(defLevel)
+				groundCheck = ctx.addSprite([0,4.1],[4,0],false)
+				groundCheck.parent = player
+				pointer = ctx.addSprite([0,0],[1,1],colors.red,false)
+				setInterval(()=>{
+					if (levelEnd) {return}
+					ctx.setColor([1,1,1].mul(30)).fill()
+					player.pos = player.pos.add([moveBuffer * moveSpeed,0])
+					if (player.collidesAny()) {
+						player.pos = player.pos.add([moveBuffer * -moveSpeed,0])
+					}
+					if (vertSpeed > -1.5) {
+						vertSpeed -= gravity
+					}
+					player.pos = player.pos.add([0,-vertSpeed]) 
+					if (player.collidesAny()) {
+						player.pos = player.pos.add([0,vertSpeed]) 
+						vertSpeed = 0
+					}
+					
+					ctx.globalOffset = ctx.globalOffset.mul(3).add(([0,0].add(player.wpos().mul(-1))).mul(0.5)
+										.add(ctx.getSize().mul(0.25))).mul(0.25)
+					ctx.drawSprites()
+					if (player.intersects(finish)) {
+						if (!levelBundleActive) {
+							loadLevel(winLevel)
+						} else {
+							levelBundleId++
+							if (levelBundleId >= levelBundle.length) {
+								levelBundleActive = false
+								loadLevel(winLevel)
+							} else {
+								loadLevel(levelBundle[levelBundleId])
+							}
+						}
+					}
+					if (ctx.sprites.indexOf(pointer) == -1) {
+						ctx.sprites.push(pointer)
+					}
+				},17)
+				window.onresize = function() {
+					var ca = E.co
+					
+					ca.style.height = window.innerHeight - 2 + "px"
+					ca.style.width = window.innerHeight + "px"
+					co.style.left = window.innerWidth / 2 - window.innerHeight / 2 + "px"
+				}
+				window.onresize()
+			}
+			
+			function keyd(event) {
+				if (event.key == "a") {
+					moveBuffer = -1
+				} else if (event.key == "d") {
+					moveBuffer = 1
+				} else if (event.key == "w" && groundCheck.collidesAny()) {
+					vertSpeed += jumpForce
+				} else if (event.key == "l") {
+					var inp = prompt("Enter level data")
+					console.log(inp)
+					if (inp.length > 0) {
+						var ll = JSON.parse(inp)
+						if (ll instanceof Array) {
+							levelBundle = ll
+							levelBundleActive = true
+							levelBundleId = 0
+							loadLevel(ll[levelBundleId])
+						} else {
+							loadLevel(ll)
+						}
+					}
+				} else if (event.key == "+") {
+					player.pos = pointer.pos
+				} 			
+			}
+			
+			function keyu(event) {
+				if (event.key == "a" || event.key == "d") {
+					moveBuffer = 0
+				}
+			}
+			
+			function loadLevel(level) {
+				levelEnd = true
+				ctx.setColor(colors.green).fill()
+				setTimeout(()=>{
+					levelEnd = false
+					ctx.sprites.length = 0
+					ctx.sprites.push(player)
+					ctx.sprites.push(finish)
+					ctx.sprites.push(pointer)
+					console.log(level)
+					level.world.forEach((v)=>{
+						ctx.addSprite(v[0],v[0].mul(-1).add(v[1]),colors.black).tag = "level"
+					})
+					player.pos = level.spawn
+					finish.pos = level.finish
+				},170)
+			}
+			
+			function coords(event) {
+				var pos = vector.fromObject(event,"offset")
+				pos = pos.mul(1 / (window.innerHeight / 100))
+				pos = pos.add(ctx.globalOffset.mul(-2))
+				pointer.pos = [Math.floor(pos[0]),Math.floor(pos[1])]
+				E.coords.innerText = Math.floor(pos[0]) + " ," + Math.floor(pos[1])
+			}
+		</script>
+	</head>
+	<body onkeydown="keyd(event)" onkeyup="keyu(event)" style="background-color:#999999">
+		<div style="position:absolute;top:0;left:0" id="co">
+			<canvas height="100" width="100" style="cursor:none" class="border pixelate fill" onmousemove="coords(event)"></canvas>
+		</div>
+		<span id="coords"></span>
+		<span hidden id="bundle">[{"spawn":[11,38],"finish":[8,70],"world":[[[7,46],[15,65]],[[20,46],[27,50]],[[33,46],[43,65]],[[53,30],[55,67]],[[53,67],[55,80]],[[32,74],[39,80]],[[19,74],[22,77]],[[6,74],[13,82]],[[15,53],[33,56]],[[7,18],[9,46]],[[6,82],[8,92]],[[19,77],[22,79]],[[18,74],[19,79]],[[6,92],[55,93]],[[6,93],[55,94]],[[53,80],[55,92]],[[45,83],[53,92]]]},{"spawn":[16,69],"finish":[19,10],"world":[[[12,23],[14,80]],[[14,78],[32,80]],[[27,70],[32,78]],[[14,61],[21,68]],[[32,53],[34,80]],[[34,44],[42,53]],[[42,36],[49,44]],[[54,36],[61,44]],[[42,44],[61,53]],[[34,53],[61,79]],[[34,79],[61,80]],[[34,18],[41,23]],[[12,14],[30,17]],[[27,53],[32,59]],[[42,26],[49,30]],[[12,6],[14,23]],[[12,4],[59,6]],[[59,4],[61,36]],[[14,17],[30,23]]]},{"spawn":[12,36],"finish":[80,34],"world":[[[11,41],[17,46]],[[38,41],[46,46]],[[54,36],[61,40]],[[65,29],[73,35]],[[17,46],[23,52]],[[71,35],[73,50]],[[23,37],[29,41]],[[23,52],[30,58]],[[30,58],[71,60]],[[71,50],[73,66]],[[11,46],[17,60]],[[17,52],[23,60]],[[23,58],[30,60]],[[73,64],[90,66]],[[84,58],[90,64]],[[97,22],[98,66]],[[98,22],[99,66]],[[80,38],[88,38]],[[90,58],[98,66]],[[78,9],[80,22]],[[9,14],[11,60]],[[78,22],[80,38]],[[93,47],[97,51]],[[88,53],[97,58]],[[91,49],[97,53]],[[78,38],[84,45]],[[84,39],[88,43]]]},{"spawn":[18,10],"finish":[34,60],"world":[[[23,22],[25,66]],[[25,64],[38,66]],[[38,19],[40,66]],[[15,19],[25,21]],[[23,21],[25,22]],[[13,7],[15,21]],[[38,7],[40,19]],[[13,5],[40,7]]]},{"spawn":[68,60],"finish":[22,26],"world":[[[65,50],[72,57]],[[52,43],[60,57]],[[39,37],[47,57]],[[17,30],[32,35]],[[21,35],[27,66]],[[27,35],[28,66]],[[21,66],[86,68]],[[84,27],[86,66]],[[78,58],[84,66]],[[15,12],[17,34]],[[15,34],[17,35]]]},{"spawn":[15,2],"finish":[76,41],"world":[[[12,0],[14,57]],[[21,0],[23,57]],[[0,55],[12,57]],[[-1,57],[1,58]],[[0,57],[2,68]],[[0,68],[23,70]],[[30,63],[38,70]],[[43,54],[50,63]],[[62,54],[69,62]],[[74,45],[83,53]],[[21,70],[23,77]],[[21,77],[84,79]],[[83,45],[84,53]],[[84,45],[86,79]],[[84,0],[86,45]]]},{"spawn":[18,23],"finish":[62,68],"world":[[[13,32],[21,40]],[[21,40],[28,48]],[[28,48],[37,57]],[[37,57],[45,65]],[[45,65],[52,72]],[[52,72],[66,74]],[[66,39],[68,74]],[[13,15],[15,32]]]},{"spawn":[22,54],"finish":[28,64],"world":[[[20,61],[28,68]],[[28,52],[36,61]],[[36,42],[44,52]],[[44,32],[53,42]],[[63,22],[65,66]],[[20,68],[65,69]],[[20,69],[65,70]],[[63,65],[65,68]],[[18,25],[20,70]],[[18,22],[20,25]],[[18,20],[65,22]]]},{"spawn":[16,69],"finish":[19,10],"world":[[[12,23],[14,80]],[[14,78],[32,80]],[[27,70],[32,78]],[[14,61],[21,68]],[[32,53],[34,80]],[[34,44],[42,53]],[[42,36],[49,44]],[[54,36],[61,44]],[[42,44],[61,53]],[[34,53],[61,79]],[[34,79],[61,80]],[[34,18],[41,23]],[[12,14],[30,17]],[[27,53],[32,59]],[[42,26],[49,30]],[[12,6],[14,23]],[[12,4],[59,6]],[[59,4],[61,36]],[[14,17],[30,23]]]},{"spawn":[23,66],"finish":[32,14],"world":[[[21,70],[28,76]],[[35,67],[44,69]],[[21,76],[63,78]],[[50,61],[58,67]],[[63,54],[72,62]],[[76,48],[92,51]],[[67,35],[76,43]],[[76,39],[82,42]],[[54,26],[63,33]],[[46,22],[52,29]],[[30,18],[43,22]],[[63,76],[94,78]],[[94,9],[96,78]],[[19,10],[21,77]]]},{"spawn":[43,2],"finish":[42,86],"world":[[[40,8],[49,79]],[[30,90],[57,93]],[[57,3],[60,93]],[[26,3],[30,93]],[[26,0],[60,1]],[[26,1],[60,2]],[[26,2],[31,3]],[[57,2],[60,3]]]}]</span>
+	</body>
+</html>

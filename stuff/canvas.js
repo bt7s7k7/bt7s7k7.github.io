@@ -1,6 +1,6 @@
 function CanvasUtil(canvas) {
 	this.canvas = canvas;
-	
+	this.globalOffset = [0,0]
 	this.setColor = function(color) {
 		if (color[0] > 255) {
 			color[0] = 255
@@ -30,11 +30,22 @@ function CanvasUtil(canvas) {
 	}
 	
 	this.box = function(pos,size) {
+		pos = pos.add(this.globalOffset)
 		this.canvas.fillRect(pos[0],pos[1],size[0],size[1]);
 		return this
 	}
 	
+	this.rect = function(pos,size) {
+		pos = pos.add(this.globalOffset)
+		this.canvas.beginPath()
+		this.canvas.rect(pos[0],pos[1],size[0],size[1])
+		this.canvas.stroke()
+		return this
+	}
+	
 	this.line = function(pos1,pos2,width = 1) {
+		pos1 = pos.add(this.globalOffset)
+		pos2 = pos.add(this.globalOffset)
 		this.canvas.lineWidth = width;
 		this.canvas.beginPath()
 		this.canvas.moveTo(pos1[0],pos1[1]);
@@ -44,6 +55,7 @@ function CanvasUtil(canvas) {
 	}
 	
 	this.ellipse = function(pos,size,rot = 0) {
+		pos = pos.add(this.globalOffset)
 		this.canvas.beginPath()
 		this.canvas.ellipse(pos[0],pos[1],size[0],size[1],rot,0,Math.PI * 2)
 		this.canvas.fill()
@@ -60,6 +72,7 @@ function CanvasUtil(canvas) {
 	} 
 	
 	this.load = function(str,pos = [0,0],size = [this.canvas.canvas.width,this.canvas.canvas.height]) {
+		pos = pos.add(this.globalOffset)
 		var img = new Image()
 		img.src = str
 		img.onload = ()=>{
@@ -69,6 +82,7 @@ function CanvasUtil(canvas) {
 	}
 	
 	this.clearRect = function(pos,size) {
+		pos = pos.add(this.globalOffset)
 		this.canvas.clearRect(pos[0],pos[1],size[0],size[1])
 		return this
 	}
@@ -82,6 +96,108 @@ function CanvasUtil(canvas) {
 		this.canvas.canvas.width = size[0]
 		this.canvas.canvas.height = size[1]
 		return this
+	}
+	
+	this.sprites = []
+	this.drawSpriteColl = false
+	
+	this.addSprite = function (pos,size,color,coll = true) {
+		var sprite = {pos:pos,size:size,color:color,coll:coll}
+		var id = this.sprites.length
+		var sprites = this.sprites
+		sprite.remove = function () {
+			sprites.splice(sprites.indexOf(sprite),1)
+		}
+		sprite.move = function(offset) {
+			pos = pos.add(offset)
+		}
+		sprite.collides = function (other) {
+			if (!other.coll) {return}
+			var coll = false
+			var edges = [
+				sprite.wpos(),
+				sprite.wpos().add([sprite.size[0],0]),
+				sprite.wpos().add([0,sprite.size[1]]),
+				sprite.wpos().add([sprite.size[0],sprite.size[1]])
+			]
+			edges.forEach((edge)=>{
+				var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
+				var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
+				coll = coll || (xs && ys)
+			})
+			return coll
+		}
+		sprite.intersects = function (other) {
+			var coll = false
+			var edges = [
+				sprite.wpos(),
+				sprite.wpos().add([sprite.size[0],0]),
+				sprite.wpos().add([0,sprite.size[1]]),
+				sprite.wpos().add([sprite.size[0],sprite.size[1]])
+			]
+			edges.forEach((edge)=>{
+				var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
+				var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
+				coll = coll || (xs && ys)
+			})
+			return coll
+		}
+		
+		sprite.collidesAny = function () {
+			var coll = 0
+			sprites.forEach((v)=>{
+				if (v != sprite) {
+					if (sprite.collides(v)) {
+						coll++
+					}
+				}
+			})
+			return coll
+		}
+		sprite.parent = null
+		sprite.wpos = function() {
+			if (sprite.parent) {
+				return sprite.pos.add(sprite.parent.wpos())
+			} else {
+				return sprite.pos
+			}
+		}
+		this.sprites[id] = sprite
+		return sprite
+	}
+	
+	this.drawSprites = function (offset) {
+		this.sprites.forEach((v)=>{
+			if (v.color) {
+				this.setColor(v.color)
+				this.box(v.wpos().add(this.globalOffset),v.size)
+			}
+		})
+		if (this.drawSpriteColl) {
+			this.sprites.forEach((v)=>{
+				this.setColor(colors.green)
+				this.rect(v.wpos().add(this.globalOffset),v.size)
+			})
+		}
+	}
+	
+	this.castPoint = function(edge) {
+		ret = null
+		this.sprites.forEach((other)=>{
+			if (!other.coll) {return}
+			
+			var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
+			var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
+
+			if (xs && ys) {
+				ret =  other
+			}
+		})
+		return ret
+	}
+	this.toWorld = function(pos) {
+		pos = pos.add(ctx.globalOffset.mul(-2))
+		return pos
 	}
 }
 
@@ -158,6 +274,10 @@ Number.prototype.notNaN = function() {
 	}
 }
 
+Number.prototype.between = function(first,second) {
+	return this <= Math.max(first,second) && this >= Math.min(first,second)
+}
+
 colors = {
 	red : [255,0,0],
 	blue : [0,0,255],
@@ -172,6 +292,9 @@ colors = {
 		return [parseInt(hexs[0] + hexs[1],16),parseInt(hexs[2] + hexs[3],16),parseInt(hexs[4] + hexs[5],16)]
 	},
 	gray: [127,127,127],
+	grey: [127,127,127],
+	darkGrey: [63,63,63],
+	lightGrey: [191,191,191],
 	orange: [255,127,0]
 }
 
