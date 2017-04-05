@@ -111,7 +111,7 @@ function CanvasUtil(canvas) {
 		sprite.move = function(offset) {
 			pos = pos.add(offset)
 		}
-		sprite.collides = function (other) {
+		sprite.collides = function (other,second = false) {
 			if (!other.coll) {return}
 			var coll = false
 			var edges = [
@@ -125,6 +125,9 @@ function CanvasUtil(canvas) {
 				var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
 				coll = coll || (xs && ys)
 			})
+			if (!second) {
+				coll = coll || other.collides(sprite,true)
+			}
 			return coll
 		}
 		sprite.intersects = function (other) {
