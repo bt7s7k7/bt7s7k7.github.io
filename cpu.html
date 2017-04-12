@@ -1,0 +1,397 @@
+<html>
+	<head>
+		<script src="stuff/bUtils.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		<script>
+			var bus = 0
+			var a = 0
+			var b = 0
+			var pCount = 0
+			var mem = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+			var memId = 0
+			var iCount = 0
+			var out = 0;
+			
+			var currInst = 0
+			var carry = false
+			var clock = false
+			var turbo = false
+			
+			var aIn = false;
+			var aOut = false;
+			var bIn = false;
+			var sumOut = false;
+			var memOut = false;
+			var memIn = false;
+			var memIdIn = false;
+			var pCountOut = false;
+			var pCountIn = false;
+			var outIn = false;
+			
+			function reset() {
+				bus = 0
+				a = 0
+				b = 0
+				pCount = 0
+				mem = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+				memId = 0
+				iCount = 0
+				out = 0;
+				resetCon()
+			}
+			
+			function resetCon() {
+				aIn = false;
+				aOut = false;
+				bIn = false;
+				sumOut = false;
+				memOut = false;
+				memIn = false;
+				memIdIn = false;
+				pCountOut = false;
+				pCountIn = false;
+				outIn = false;
+			}
+			
+			var programMode = false;
+			
+			function setup() {
+				if (B.l.mem) {
+					mem = B.l.mem
+				}
+				setInterval(()=>{
+					reval()
+				},17)
+				
+				setInterval(()=>{
+					if (clock && !turbo) {
+						step()
+					}
+				},100)
+				
+				setInterval(()=>{
+					if (clock && turbo) {
+						step()
+					}
+				},10)
+			}
+			
+			function exit() {
+				B.l.mem = mem
+			}
+			
+			function reval() {
+				E.busO.value = twobit(bus.toString(16))
+				E.aO.value = a.toString(16)
+				E.bO.value = b.toString(16)
+				E.sumO.value = parseInt(twobit((a + b).toString(16))[1],16)
+				E.pCountO.value = pCount.toString(16)
+				E.memIdO.value = memId.toString(16)
+				E.memO.value = twobit(mem[memId].toString(16))
+				E.iCountO.value = iCount.toString(16)
+				E.currInstO.value = currInst.toString(16)
+				E.outO.value = out.toString()
+				
+				E.aInI.style.backgroundColor = indColor(false,aIn)
+				E.aOutI.style.backgroundColor = indColor(true,aOut)
+				E.bInI.style.backgroundColor = indColor(false,bIn)
+				E.sumOutI.style.backgroundColor = indColor(true,sumOut)
+				E.memIdInI.style.backgroundColor = indColor(false,memIdIn)
+				E.memInI.style.backgroundColor = indColor(0,memIn)
+				E.memOutI.style.backgroundColor = indColor(1,memOut)
+				E.outInI.style.backgroundColor = indColor(false,outIn)
+				E.pCountInI.style.backgroundColor = indColor(false,pCountIn)
+				E.pCountOutI.style.backgroundColor = indColor(true,pCountOut)
+				
+				if (carry) {
+					E.carry.innerText = "C"
+				} else {
+					E.carry.innerText = "0"
+				}
+				E.clock.checked = clock
+				E.memD.innerText = ""
+				mem.forEach((v,i)=>{
+					E.memD.innerText += i.toString(16) + ":" + twobit(v.toString(16))
+					if (pCount == i) {
+						E.memD.innerText += " *"
+					}
+					E.memD.innerText += "\n"
+				})
+			}
+			
+			function indColor(output,active) {
+				if (output) {
+					if (active) {
+						return "#ff9900"
+					} else {
+						return "#994400"
+					}
+				} else {
+					if (active) {
+						return "#0099ff"
+					} else {
+						return "#000077"
+					}
+				}
+			}
+			
+			function inByte(num) {
+				num = num % 16
+				if (num < 0) {
+					num = 15
+				}
+				return num
+			}
+			
+			function byteCheck(element,second) {
+				var allowed = "1234567890abcdef".split("")
+				allowed[16] = ""
+				if (allowed.indexOf(element.value) == -1) {
+					if (!second) {
+						element.value = element.value[element.value.length - 1]
+						byteCheck(element,true)
+					} else {
+						element.value = 0
+					}
+				}
+				console.log(allowed.indexOf(element.value))
+			}
+			
+			function step() {
+				resetCon()
+				if (iCount == 0) {
+					pCountOut = true
+					memIdIn = true
+				}
+				if (iCount == 1) {
+					memOut = true
+					register()
+					currInst = parseInt(twobit(bus.toString(16))[0],16)
+				}
+				if (iCount == 2) {
+					if (currInst == 0) {
+						clock = false
+						iCount = -1
+						pCount = 0
+					}
+					if (currInst == 7) {
+						aOut = true
+						outIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 9) {
+						memOut = true
+						aIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 10) {
+						memOut = true
+						bIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 8) {
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 6 || currInst == 11 || currInst == 1 || currInst == 2) {
+						memIdIn = true
+						memOut = true
+					}
+					if (currInst == 4) {
+						memOut = true
+						pCountIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 5) {
+						if (carry) {
+							memOut = true
+							pCountIn = true
+						}
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 3) {
+						sumOut = true
+						aIn = true
+						iCount = -1
+						pCount++
+						if (parseInt(twobit((a + b).toString(16))[0],16)) {
+							carry = true
+						} else {
+							carry = false
+						}
+					}
+					if (currInst == 12) {
+						aOut = true
+						bIn = true
+						iCount = -1
+						pCount++
+					}
+				}
+				if (iCount == 3) {
+					if (currInst == 6) {
+						aOut = true
+						memIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 11) {
+						mem[memId] = parseInt(twobit(mem[memId].toString(16)).split("").reverse().join(""),16)
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 1) {
+						memOut = true
+						aIn = true
+						iCount = -1
+						pCount++
+					}
+					if (currInst == 2) {
+						memOut = true
+						bIn = true
+						iCount = -1
+						pCount++
+					}
+				}
+				register()
+				iCount += 1
+				iCount = inByte(iCount)
+			}
+			
+			function register() {
+				if (aOut) {
+					bus = a
+				}
+				if (memOut) {
+					bus = mem[memId]
+				}
+				if (pCountOut) {
+					bus = pCount
+				}
+				if (sumOut) {
+					bus = parseInt(twobit((a + b).toString(16))[1],16)
+				}
+				
+				if (aIn) {
+					a = parseInt(twobit(bus.toString(16))[1],16)
+				}
+				if (bIn) {
+					b = parseInt(twobit(bus.toString(16))[1],16)
+				}
+				if (outIn) {
+					out = bus
+				}
+				if (memIdIn) {
+					memId = parseInt(twobit(bus.toString(16))[1],16)
+				}
+				if (memIn) {
+					mem[memId] = parseInt(twobit(bus.toString(16))[1],16)
+				}
+				if (pCountIn) {
+					pCount = parseInt(twobit(bus.toString(16))[1],16)
+				}
+				
+				
+			}
+			
+			function twobit (code) {
+				var ret = code.split("")
+				ret = ret.reverse()
+				ret.push("0")
+				ret.length = 2
+				ret = ret.reverse()
+				return ret.join("")
+			}
+			
+			function onKey(event) {
+				if (event.key == "l") {
+					var inp = prompt("Enter memory data")
+					try {
+						mem = JSON.parse(inp)
+					} catch(err) {
+						alert(err.message)
+					}
+				}
+				if (event.key == "s") {
+					prompt("Here is your memory data",JSON.stringify(mem))
+				}
+			}
+		</script>
+	</head>
+	<body>
+		<div style="position:relative;left:-300px">
+			<div style="position:absolute;top:15px;left:490px">Bus: <input id="busO" disabled style="width:24px" size="1"></div>
+			<div style="position:absolute;top:50px;left:530px">
+				<h4>APU</h6>
+				A: <input id="aO" disabled style="width:12px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="aInI"></div>
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="aOutI"></div>
+				<br />
+				Sum: <input id="sumO" disabled style="width:12px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="sumOutI"></div>
+				<span id="carry">0</span>
+				<br />
+				B: <input id="bO" disabled style="width:12px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block;position:relative;top:5" id="bInI"></div>
+				<br />
+			</div>
+			<div style="position:absolute;top:50px;left:320px">
+				Program Counter: <input id="pCountO" disabled style="width:12px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="pCountOutI"></div>
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="pCountInI"></div>
+			</div>
+			<div style="position:absolute;top:100;left:320px">
+				<h4>Memory</h4>
+				<button onclick="memId = inByte(memId - 1)"><</button>
+				<button onclick="memId = inByte(memId + 1)">></button>
+				<br />
+				<input onkeydown="setTimeout(byteCheck,17,this)" style="width:15px" value="0" id="sett">
+				<input onkeydown="setTimeout(byteCheck,17,this)" style="width:15px" value="0" id="settA">
+				<button onclick="mem[memId] = parseInt(E.sett.value + E.settA.value,16)">Set</button>
+				<br />
+				Memory Address: <input id="memIdO" disabled style="width:12px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="memIdInI"></div>
+				<br />
+				Memory Content: <input id="memO" disabled style="width:24px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="memInI"></div>
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="memOutI"></div>
+			</div>
+			<div style="position:absolute;top:350px;left:450px">
+				Instruction Counter: <input id="iCountO" disabled style="width:12px" size="1"><br />
+				Current Instruction: <input id="currInstO" disabled style="width:12px" size="1">
+			</div>
+			<div style="position:absolute;top:200;left:530px">
+				Out: <input id="outO" disabled style="width:36px" size="1">
+				<div style="width:20px;height:20px;background-color:black;display:inline-block" id="outInI"></div>
+			</div>
+			<div style="position:absolute;background-color:black;top:40px;left:500px;width:10px;height:300px"></div>
+		</div>
+		<div style="position:absolute;top:20;left:400px" class="monospace">
+			hlt 0 <br />
+			loa 1 [M]<br />
+			lob 2 [M]<br />
+			sum 3 <br />
+			jmp 4 [M] <br />
+			jmc 5 [M] <br />
+			sav 6 [M] <br />
+			out 7 <br />
+			ign 8 <br />
+			set 9 [I] <br />
+			seb a [I] <br />
+			rml b [M] <br />
+			bak c<br />
+			<button onclick="step()">Step</button><br />
+			<button onclick="reset()">Reset</button><br />
+			<input type="checkbox" id="clock" onchange="clock = this.checked"> Clock<br />
+			<input type="checkbox" onchange="turbo = this.checked"> Turbo
+		</div>
+		<div style="position:absolute;top:0;left:500px" class="monospace">
+			<h4>Memory dump</h4>
+			<span id="memD"></span>
+		</div>
+	</body>
+</html>

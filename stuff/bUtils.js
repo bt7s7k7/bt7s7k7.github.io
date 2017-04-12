@@ -28,9 +28,14 @@ window.onload = function(){
 }
 
 window.onunload = function () {
+	var error = false
 	try {
-		setTimeout(exit,1)
-	} catch (err) {}
+		if (exit) {
+			exit()
+		}
+	} catch (err) {
+		error = err
+	}
 	
 	for (i = 0;i < B.sincE.length;i++) {
 		B.lStorage.sinc[B.sincE[i].id] = B.sincE[i].value
@@ -45,6 +50,9 @@ window.onunload = function () {
 	} 
 	
 	localStorage[window.location.pathname + ":bData"] = JSON.stringify(B.lStorage)
+	if (error) {
+		throw error
+	}
 }
 
 B.swap = function(e1,e2) {
@@ -95,4 +103,10 @@ B.sincCheck = function(thing) {
 		}
 	}
 	B.sincECheck.push(thing)
+}
+
+window.onkeydown = function(event) {
+	if (onKey) {
+		onKey(event)
+	}
 }
