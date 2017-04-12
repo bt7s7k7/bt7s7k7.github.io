@@ -1,4 +1,4 @@
-<html>
+﻿<html>
 	<head>
 		<script src="stuff/bUtils.js"></script>
 		<script src="stuff/canvas.js"></script>
@@ -15,9 +15,10 @@
 				"7.png",
 				"8.png",
 				"9.bmp",
-				"10.png"
+				"10.png",
 				"11.jpg"
 			]
+			
 			var gallID = 0
 			function setup() {
 				E.jsW.hidden = true;
@@ -37,17 +38,24 @@
 					
 				},5000)
 				ctx.load("gallery/" + gallImgs[0],[0,0],[500,500])
+				setInterval(()=>{
+					var time = new Date()
+					E.time.innerText = time.getFullYear() + " " + (time.getMonth() + 1) + "." + (time.getDate()) + ". " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + ":" +  time.getMilliseconds()
+				},17)
 			}
 		</script>
 	</head>
 	<body style="background-color:black">
 		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden/>
 		<img src="stuff/logo.png" style="position:absolute;height:200px;width:200px;top:100px;left:275px" />
-		<h1 style="position:absolute;color:white;top:220px;left:485px">Work in progress</h1>
-		<h1 style="color:black;position:absolute;top:75px;left:485px;font-size:100px;color:yellow">bt7s7k7</h1>
+		<h1 style="position:absolute;color:white;top:220px;left:485px" id="time">
+			<span id="jsW" style="color:red">ERROR ERROR ERROR</span>
+		</h1>
+		<h1 style="color:black;position:absolute;top:75px;left:485px;font-size:100px;color:yellow" >
+			bt7s7k7
+		</h1>
 		<>
 		<section id="text" style="color:white;position:relative;top:375">
-			<h1 style="color:red" id="jsW">Please, enable your JavaScript / Prosím, povolte svoj JavaScript<br /></h1>
 			<h1>Links / Odkazy</h1>
 			<h3>
 				<a href="https://www.youtube.com/channel/UC6L4aSMM7i36iaLEsK3NThQ" style="color:yellow;text-decoration:none">Youtube</a><br />
@@ -58,6 +66,11 @@
 			<h1>Online Projects / Online Projekty</h1>
 			<h3>
 				<a href="platform.html" style="color:yellow;text-decoration:none">Platform</a><br />
+			</h3>
+			<h1>Downloads / Súbori na stiahnutie</h1>
+			<h3>
+				<a href="https://github.com/bt7s7k7/BinaryR/blob/master/Rockets.apk?raw=true" style="color:yellow;text-decoration:none">
+				Rockets.apk</a><br />
 			</h3>
 			<h1>Galery / Galéria</h1>
 			<canvas class="pixelate" height="500" width="500" style="border:1px solid yellow"><h1 style="color:red">HTML5 Needed</h1></canvas>
