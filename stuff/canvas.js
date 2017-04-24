@@ -44,8 +44,8 @@ function CanvasUtil(canvas) {
 	}
 	
 	this.line = function(pos1,pos2,width = 1) {
-		pos1 = pos.add(this.globalOffset)
-		pos2 = pos.add(this.globalOffset)
+		pos1 = pos1.add(this.globalOffset)
+		pos2 = pos2.add(this.globalOffset)
 		this.canvas.lineWidth = width;
 		this.canvas.beginPath()
 		this.canvas.moveTo(pos1[0],pos1[1]);
@@ -202,6 +202,21 @@ function CanvasUtil(canvas) {
 		pos = pos.add(ctx.globalOffset.mul(-2))
 		return pos
 	}
+	
+	this.shape = function(poss,fill = true) {
+		this.canvas.beginPath()
+		this.canvas.moveTo(poss[0][0] + this.globalOffset[0],poss[0][1] + this.globalOffset[1])
+		poss.forEach((v)=>{
+			this.canvas.lineTo(v[0] + this.globalOffset[0],v[1] + this.globalOffset[1])
+		})
+		if (fill) {
+			this.canvas.fill()
+		} else {
+			this.canvas.stroke()
+		}
+		
+		return this
+	}
 }
 
 Array.prototype.add = function(second) {
@@ -269,6 +284,25 @@ Array.prototype.equals = function(second) {
 	return same
 }
 
+Array.prototype.dot = function (second) {
+	var a = 0
+	this.forEach((v,i)=>{
+		a += v * second[i]
+	})
+	return a
+}
+
+Array.prototype.cross = function (second) {
+	if (this.length != 3) {throw "This is an 3D operation"}
+	var ret = []
+	var a = this
+	var b = second
+	ret.push(a[1] * b[2] - a[2] * b[1])
+	ret.push(a[2] * b[0] - a[0] * b[2])
+	ret.push(a[0] * b[1] - a[1] * b[0])
+	return ret
+}
+
 Number.prototype.notNaN = function() {
 	if (isNaN(this)) {
 		return 0
@@ -312,6 +346,10 @@ vector = {
 	},
 	fromObject: function(object,member) {
 		return [object[member + "X"],object[member + "Y"]];
+	},
+	lerp: function (start,end,fraction) {
+		var diff = start.add(end.mul(-1))
+		return start.add(diff.mul(-fraction))
 	}
 }
 

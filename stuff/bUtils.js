@@ -20,17 +20,44 @@ if (!location.search.substring(1) == "") {
 	}
 }
 
+B.updateInterval = true
+
 window.onload = function(){
 	try {
 		setTimeout(setup,1)
 	} catch (err) {}
+	var updateFunc = (auto)=>{
+		var end = 0.0
+		var err
+		var start = Date.now()
+		if (window.update && (B.updateInterval || auto)) {
+			try {
+				update()
+			} catch (err_) {
+				err = err_
+			}
+		}
+		end = Date.now()
+		B.renderTime = end - start
+		B.fps = 1000 / B.renderTime
+		
+		
+		if (err) {
+			throw err
+		}
+		return B.renderTime
+	}
+	setInterval(updateFunc,17)
+	B.updateOnce = ()=>{
+		return updateFunc(true)
+	}
 	B.reload()
 }
 
 window.onunload = function () {
 	var error = false
 	try {
-		if (exit) {
+		if (window.exit) {
 			exit()
 		}
 	} catch (err) {
@@ -106,7 +133,7 @@ B.sincCheck = function(thing) {
 }
 
 window.onkeydown = function(event) {
-	if (onKey) {
+	if (window.onKey) {
 		onKey(event)
 	}
 }
