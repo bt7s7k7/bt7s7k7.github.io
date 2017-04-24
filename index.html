@@ -21,6 +21,9 @@
 			
 			var gallID = 0
 			function setup() {
+				if (B.get.redirect != undefined) {
+					location.href = decodeURIComponent(B.get.redirect)
+				}
 				E.jsW.hidden = true;
 				ctx = new CanvasUtil(B.canvas)
 				setInterval(()=>{
@@ -46,7 +49,7 @@
 		</script>
 	</head>
 	<body style="background-color:black">
-		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden/>
+		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden />
 		<img src="stuff/logo.png" style="position:absolute;height:200px;width:200px;top:100px;left:275px" />
 		<h1 style="position:absolute;color:white;top:220px;left:485px" id="time">
 			<span id="jsW" style="color:red">ERROR ERROR ERROR</span>
@@ -54,7 +57,6 @@
 		<h1 style="color:black;position:absolute;top:75px;left:485px;font-size:100px;color:yellow" >
 			bt7s7k7
 		</h1>
-		<>
 		<section id="text" style="color:white;position:relative;top:375">
 			<h1>Links / Odkazy</h1>
 			<h3>
