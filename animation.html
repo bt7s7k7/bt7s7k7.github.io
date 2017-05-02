@@ -1,0 +1,135 @@
+﻿<html>
+	<head>
+		<script src="stuff/butils.js"></script>
+		<script src="stuff/canvas.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btstyle.css">
+		<script>
+			var ctx
+			function setup() {
+				ctx = new CanvasUtil(B.canvas);
+				ctx.setColor([1,1,1])
+				updateP();
+				pFrame()
+			}
+			var frameI = 0
+			var frames = [];
+			var width = 10;
+			var offset = [1,1].mul(-width)
+			var mouseDown = false;
+			var isRight = false;
+			var lastPos = [-1,-1];
+			function mDown(event) {
+				isRight = event.button == 2;
+				lastPos = [event.clientX,event.clientY];
+				mouseDown = true;
+				event.preventDefault()
+			}
+			
+			function mUp(event) {
+				lastPos = [-1,-1];
+				mouseDown = false;
+				event.preventDefault()
+			}
+			
+			function mMove(event) {
+				if (mouseDown) {
+					if (!isRight) {
+						ctx.line(lastPos.add(offset),vector.fromObject(event,"client").add(offset),width);
+						ctx.ellipse(vector.fromObject(event,"client").add(offset.mul(0.9)),[1,1].mul(width / 2));
+						lastPos = vector.fromObject(event,"client");
+					} else {
+						ctx.clearRect(vector.fromObject(event,"client").add(offset.mul(1.5)),[1,1].mul(width))
+					}
+					
+				}
+				event.preventDefault()
+			}
+			
+			function moveFrame(off) {
+				if (frameI + off < 0) {
+					return frameI
+				}
+				frameI += off
+				E.fI.innerText = frameI
+				frames[frameI - off] = B.canvas.canvas.toDataURL()
+				if (frameI != 0) {
+					
+					E.last.src = frames[frameI - 1]
+				} else {
+					E.last.src = ""
+				}
+				ctx.clear()
+				if (frames[frameI]) {
+					ctx.load(frames[frameI]);
+				}
+				return frameI;
+			}
+			
+			var pFrameI = 0;
+			var pLen = 0;
+			var pFPS = 6;
+			var pEnabled = false;
+			var cycle = 0
+			function updateP() {
+				pEnabled = E.act.checked
+				pLen = parseInt(E.len.value)
+				pFPS = parseInt(E.fps.value)
+				E.curr.max = pLen - 1
+			}
+			
+			function pFrame(force = false) {
+				if (!force) {
+					setTimeout(pFrame,Math.floor(1000 / pFPS))
+				}
+				if (pLen > 0) {
+					E.player.src = frames[pFrameI]
+				}
+				
+				if (!force && pEnabled) {
+					pFrameI++;
+					if (pFrameI > pLen - 1) {
+						pFrameI = 0;
+					}
+					E.curr.value = pFrameI
+					
+				}
+				cycle++
+				
+			}
+			
+			
+			function imp() {
+				frames = JSON.parse(E.import.value);
+				E.len.value = frames.length;
+				updateP();
+				ctx.load(frames[0]);
+				frameI = 0;
+			} 
+			
+			function exp () {
+				E.import.value = JSON.stringify(frames);
+			}
+		</script>
+	</head>
+	<body>
+		<img src="" id="last" style="height:200px;width:200px;border: 1px black solid;position:absolute;top:8px;left:8px" />
+		<img src="stuff/whiten.png" style="height:200px;width:200px;border: 1px black solid;position:absolute;top:8px;left:8px" />
+		<canvas id="draw" height=200 width=200 style="border: 1px solid black;position:absolute;top:8px;left:8px" onmousedown="mDown(event)" 
+		onmousemove="mMove(event)" onmouseup="mUp(event)" onmouseleave="mUp(event)" oncontextmenu="event.preventDefault()"></canvas>
+		
+		<br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+		<button onclick="moveFrame(-1)"><</button><span id="fI">0</span><button onclick="moveFrame(1)">></button><button onclick="ctx.clear()">C</button>
+		<button onclick="if (frameI > 0) {ctx.load(frames[frameI -1])}">P</button>
+		
+		<div style="position:absolute;top:8px;left:220px">
+			FPS: <input id="fps" type="number" onchange="updateP()" style="width:40px" id="fps" value="6" /> 
+			Lenght: <input style="width:40px" onchange="updateP()" type="number" id="len" value="0" /> 
+			Playing:<input id="act" onchange="updateP()" type="checkbox" />
+			Current: <input id="curr" onchange="pFrameI = parseInt(this.value);pFrame(true)" onmousemove="pFrameI = parseInt(this.value);pFrame(true)" min=0 step=1 type="range" /><br /><br />
+			<img id="player" style="height:200px;width:200px;border: 1px black solid;resize:both" src="" />
+			<textarea style="height:200px;width:200px;resize:none" id="import"></textarea>
+			<div style="position:relative;left:410px;bottom:205px"><button onclick="exp()">Export</button><br /><button onclick="imp()">Import</button></div>
+			
+		</div>
+	</body>
+</html>
