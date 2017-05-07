@@ -22,12 +22,14 @@
 			var gallID = 0
 			function setup() {
 				B.sinc(E.note)
-				if (B.get.redirect != undefined) {
-					location.href = decodeURIComponent(B.get.redirect)
-				}
 				E.jsW.hidden = true;
+				setInterval(()=>{
+					var time = new Date()
+					E.time.innerText = time.getFullYear() + " " + (time.getMonth() + 1) + "." + (time.getDate()) + ". " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + ":" +  time.getMilliseconds()
+				},17)
 				ctx = new CanvasUtil(B.canvas)
 				setInterval(()=>{
+					if (B.get.lowB) {return}
 					gallID++
 					if (gallID > gallImgs.length - 1) {
 						gallID = 0;
@@ -41,15 +43,22 @@
 					img.src = "gallery/" + gallImgs[gallID]
 					
 				},5000)
-				ctx.load("gallery/" + gallImgs[0],[0,0],[500,500])
-				setInterval(()=>{
-					var time = new Date()
-					E.time.innerText = time.getFullYear() + " " + (time.getMonth() + 1) + "." + (time.getDate()) + ". " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + ":" +  time.getMilliseconds()
-				},17)
+				if (!B.lowB) {ctx.load("gallery/" + gallImgs[0],[0,0],[500,500])}
+				
 			}
 		</script>
+		<style>
+			a {
+				color:yellow;text-decoration:none
+			}
+		</style>
 	</head>
 	<body style="background-color:black">
+		<script>
+			if (B.get.redirect != undefined) {
+				location.replace(decodeURIComponent(B.get.redirect))
+			}
+		</script>
 		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden />
 		<img src="stuff/logo.png" style="position:absolute;height:200px;width:200px;top:100px;left:275px" />
 		<h1 style="position:absolute;color:white;top:220px;left:485px" id="time">
@@ -71,11 +80,14 @@
 				<a href="platform.html" style="color:yellow;text-decoration:none">Platform</a><br />
 				<a href="cpu.html" style="color:yellow;text-decoration:none">CPU Simulator</a><br />
 				<a href="animation.html" style="color:yellow;text-decoration:none">Animator</a><br />
+				<a href="noise.html">Noise</a><br />
 			</h3>
 			<h1>Downloads / Súbori na stiahnutie</h1>
 			<h3>
 				<a href="https://github.com/bt7s7k7/BinaryR/blob/master/Rockets.apk?raw=true" style="color:yellow;text-decoration:none">
 				Rockets.apk</a><br />
+				<a href="https://github.com/bt7s7k7/BinaryR/blob/master/Windows%20%20Image%20Host.exe?raw=true" 
+				style="color:yellow;text-decoration:none">Windows Image Host.exe</a><br />
 			</h3>
 			<h1>Galery / Galéria</h1>
 			<canvas class="pixelate" height="500" width="500" style="border:1px solid yellow"><h1 style="color:red">HTML5 Needed</h1></canvas>
