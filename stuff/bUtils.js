@@ -51,6 +51,22 @@ window.onload = function(){
 	B.updateOnce = ()=>{
 		return updateFunc(true)
 	}
+	B.module.refresh()
+	B.module.list.forEach((v)=>{
+		if (v.dependComplete < v.depend.length) {
+			console.group("")
+			console.error("[BModule] Module '" + v.name + "' is missing its required modules")
+			v.depend.forEach((d)=>{
+				if (d instanceof Array) {
+					console.error("  " + d[0] + " v" + d[1])
+				} else {
+					console.error("  " + d)
+				}
+			})
+			console.groupEnd("")
+		}
+	})
+	B.pageLoaded = true
 	B.reload()
 }
 
@@ -137,3 +153,92 @@ window.onkeydown = function(event) {
 		onKey(event)
 	}
 }
+
+B.parseOptions = function (object,defaults = {},required = []) {
+	var object = Object.assign({},object)
+	required.forEach((v)=>{
+		if (object[v] == undefined) {
+			throw new Error("Option value '" + v + "' is required")
+		}
+	})
+	for (val in defaults) {
+		if (object[val] == undefined) {
+			object[val] = defaults[val]
+		}
+	}
+	
+	return object
+}
+
+B.module = {
+	list: [],
+	init: function (name,version,depend,init) {
+		if (this.list[name] != undefined) {
+			throw new Error("[BModule] Module '" + name + "' has aleready been registered")
+		}
+		var mod = {
+			name:name,
+			init:init,
+			version:version,
+			depend:depend,
+			dependComplete:0,
+			ready:false,
+			toString:()=>{return name + " v" + version}
+		}
+		
+		
+		if (depend.length > 0) {
+			console.log("[BModule] Registered module '" + mod.toString() + "'")
+		} else {
+			console.log("[BModule] Registered module '" + mod.toString() + "' and it's ready")
+			try {
+				mod.init()
+			} catch (err) {
+				setTimeout(()=>{
+					err.message = "[BModule] " + err.message
+					throw err
+				},0)
+			}
+			mod.ready = true
+		}
+		this.list.push(mod)
+		this.list[name] = mod
+		this.refresh()
+	},
+	formatedList: function() {
+		return this.list.testForEach([],(a)=>{return a.toString()}).join("\n")
+	},
+	require: function (name,path){
+		if (this.list[name] == undefined) {
+			var script = document.createElement("script")
+			script.src = path
+			script.name = name
+			document.head.appendChild(script)
+		}
+	},
+	refresh: function() {
+		this.list.forEach((source)=>{
+			this.list.forEach((v)=>{
+				v.depend.forEach((d)=>{
+					if (((d[0] == source.name && (d[1] <= source.version || d[0] == undefined)) || d == source.name) && source.ready) {
+						v.dependComplete += 1
+						d.loaded = true
+					}
+				})
+				if (v.dependComplete >= v.depend.length && !v.ready) {
+					try {
+						v.init()
+					} catch (err) {
+						setTimeout(()=>{
+							err.message = "[BModule] " + err.message
+							throw err
+						},0)
+					}
+					console.log("[BModule] Module '" + v.toString() + "' is ready")
+					v.ready = true
+				}
+			})
+		})
+	}
+}
+B.module.init("bUtils",2,[],()=>{})
