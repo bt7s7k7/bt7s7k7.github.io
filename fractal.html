@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<script src="stuff/bUtils.js"></script>
+		<script src="stuff/editor.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		<script>
+			var ctx
+			var editor
+			var prom = {status:0}
+			var takes = 0
+			var mouseOn = false
+			var lastRendered = new ImageData(500,500)
+			var providedImageData = new ImageData(500,500)
+			var offset = [0,0]
+			var zoom = 0
+			
+			var zoomAnimMem = []
+			var zoomAnimActive = false
+			var zoomAnimDowning = false
+			var zoomAnimDownID = 0
+			function setup() {
+				
+				refreshPanel()
+				ctx = new CanvasUtil(E.main.getContext("2d"))
+				ctx.setColor(colors.black).fill()
+				editor = new Editor(new ImmediateUI(new CanvasUtil(E.edit.getContext("2d"))),[400,250],["number","number","number"])
+				editor.iui.bgColor = colors.notepad.mul(2)
+				
+				nodeLibaries.math()
+				nodeLibaries.logic()
+				nodeLibaries.trig()
+				
+				allNodes.push(new EditorNode("X Y",([inp = 1,ofX = 0,ofY = 0,pi = false],glob) => {
+					var inp = inp * (glob.zoom || 1)
+					if (pi) {
+						return [glob.x * inp + ofX * Math.PI,glob.y * inp + ofY * Math.PI]
+					} else {
+						return [glob.x * inp + ofX,glob.y * inp + ofY]
+					}
+				},["number","number","number","truth"],["number","number"]))
+				allNodes.push(new EditorNode("Constants",(inp,glob) => {
+					return glob.consts
+				},[],["number","number","number","number"]))
+				allNodes.push(new EditorNode("Image",([x,y],glob) => {
+					return glob.pid.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
+				},["number","number"],["number","number","number"]))
+				allNodes.push(new EditorNode("Eval",([a = 0,b = 0],glob)=>{
+					
+					with (glob) {
+						var ret = eval(glob.evalS)
+						if (ret instanceof Array) {
+							return ret
+						} else if (typeof ret == "number") {
+							return [ret]
+						} else {
+							return
+						}		
+					}
+				},["number","number"],["number","number"]))
+				if (typeof B.l.saves != "object") {
+					B.l.saves = {}
+				}
+				if (B.l.saves.autosave) {
+					if (!B.get.fresh) {
+						load("autosave")
+						inp()
+					}
+					
+				}
+				setInterval(()=>{
+					takes = B.timedCall(editor.execCompiled,editor.prebakeCompiled(editor.compile()),{x:0,y:0,pid:providedImageData,offset,zoom,evalS:E.eval.value}) + takes
+					takes /= 2
+					if (mouseOn) {
+						render(1)
+					}
+				},100)
+				render(true)
+			}
+			
+			function update() {
+				editor.iui.update()
+				E.progress.style.width = 100 * prom.status + "px"
+				E.times.innerText = "Will take: " + Math.floor(takes * 500 * 500 / 1000) + "s"
+				offset = offset.map((v)=>{
+					return Math.floor(v * 10) / 10
+				})
+				E.pos.innerText = "Pos: " + offset.toString() + " Zoom: " + zoom
+				E.zoomPanelDownInd.innerText = zoomAnimDownID
+			}
+			
+			function render(preview,callback = ()=>{}) {
+				var compiled = editor.compile()
+				var promis = B.worker.execute((data)=>{
+					var size = (data.preview) ? 50 : 500
+					var prebake = eval(data.prebake)
+					data.compiled = prebake(data.compiled)
+					var zoom = data.zoom
+					if (zoom == 0) {
+						zoom = 1
+					} else if (zoom < 0) {
+						var begin = 1
+						repeat(Math.abs(zoom),()=>{
+							begin /= 1.1
+						})
+						zoom = begin
+					} else if (zoom > 0) {
+						var begin = 1
+						repeat(Math.abs(zoom),()=>{
+							begin *= 1.1
+						})
+						zoom = begin
+					}
+					eval(data.exec)
+					var img = new ImageData(size,size)
+					repeat(size,(x)=>{
+						repeat(size,(y)=>{
+							var [ix,iy] = [x,y].map((v,i)=>{
+								if (v == 0.5) {debugger}
+								var base = (v / (size))
+								var base = ((base - 0.5) * zoom) + (0.5)
+								var base = base + (data.offset[i]) / 10
+								return base
+							})
+ 							img.setPixel([x,y],exec(data.compiled,{x:ix,y:iy,consts: data.consts,pid:data.pid,evalS:data.eval}).mul(255))
+						})
+						status(x / size)
+					})
+					return img
+				},{
+					compiled,
+					exec: "var exec = " + editor.execCompiled.toString(),
+					preview,
+					prebake: editor.prebakeCompiled.toString(),
+					consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),
+					pid: providedImageData,
+					zoom,
+					offset,
+					eval: E.eval.value
+				})
+				prom = promis
+				promis.then((data)=>{
+					E.main.height = (preview) ? 50 : 500
+					E.main.width  = (preview) ? 50 : 500
+					if (mouseOn || !preview) {
+						ctx.load(data)
+					}
+					ctx.load(data)
+					if (!preview) {
+						lastRendered = data
+					}
+					callback()
+				})
+			}
+			
+			function exit() {
+				exp()
+				save("autosave")
+			}
+			
+			function exp() {
+				E.ie.value = JSON.stringify({arr : editor.nodes.map((v,_,arr)=>{
+					var ret = Object.assign({},v)
+					ret.type = ret.type.name
+					ret.inputConn = v.inputConn.map((v)=>{
+						var nodeId = arr.indexOf(v.node)
+						if (nodeId < 1) {
+							nodeId = null
+						}
+						return {node:nodeId,portNum:v.portNum}
+					})
+					return ret
+				}),consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),eval:E.eval.value})
+			}
+			
+			function inp() {
+				var vals = JSON.parse(E.ie.value)
+				if (vals instanceof Array) {
+					var arr = vals
+				} else {
+					var arr = vals.arr
+					vals.consts.forEach((v,i)=>{
+						E["inp" + (i+1)].value = v
+					})
+					E.eval.value = vals.eval
+				}
+				editor.nodes = arr.map((v)=>{
+					v.type = allNodes.concat([editor.nodes[0].type]).filter((w)=>{
+						return w.name == v.type
+					})[0]
+					return v
+				})
+				
+				editor.nodes.forEach((v,_,arr)=>{
+					v.inputConn = v.inputConn.map((v)=>{
+						if (typeof v.node == "number") {
+							var node = arr[v.node]
+						} else {
+							var node = null
+						}
+						
+						return {node:node,portNum:v.portNum}
+					})
+				})
+			}
+			
+			function save(name = prompt("Please enter a name","New Node Chain")) {
+				B.l.saves[name] = E.ie.value
+				refreshPanel()
+			}
+			
+			function refreshPanel() {
+				E.panel.innerHTML = ""
+				B.l.saves.forEach((v,i)=>{
+					var butt = document.createElement("button")
+					butt.innerText = i
+					butt.addEventListener("mousedown",(event)=>{
+						if (event.button == 0) {
+							load(i)
+						} else {
+							delete B.l.saves[i]
+							refreshPanel()
+						}
+					})
+					butt.style.width = "100%"
+					E.panel.appendChild(butt)
+				})
+			}
+			
+			function load(name) {
+				E.ie.value = B.l.saves[name]
+			}
+			
+			function putLast () {
+				E.main.height = 500
+				E.main.width  = 500
+				ctx.load(lastRendered)
+			}
+			
+			function reloadPID(elem) {
+				var file = elem.files[0]
+				var img = new Image()
+				img.onload = ()=>{
+					var canvas = document.createElement("canvas")
+					var ctx = new CanvasUtil(canvas.getContext("2d"))
+					ctx.setSize([500,500])
+					ctx.load(img)
+					providedImageData = ctx.canvas.getImageData(0,0,500,500)
+				}
+				img.src = URL.createObjectURL(file)
+				
+			}
+			
+			function newN() {
+				E.ie.value = `{"arr":[{"type":"Out","pos":[400,250],"inputConn":[{"node":null,"portNum":0},{"node":null,"portNum":0},{"node":null,"portNum":0}]}],"consts":[1,1,1,1],"eval":""}`
+			}
+			
+			function saveFile(callback = ()=>{}) {
+				render(false,()=>{
+					var a = document.createElement("a")
+					B.saveFile(ctx.toDataURL(),E.nameTemp.value
+						.replace(/\{zoom\}/g,zoom.toString(10,4))
+						.replace(/\{x\}/,offset[0])
+						.replace(/\{y\}/,offset[1])
+						.replace(/\{y\}/,offset[1])
+						.replace(/\{time\}/,Date.now())
+					) 
+					callback()
+				})
+			}
+			
+			function zoomAnim() {
+				if (!zoomAnimActive) {return}
+				render(false,()=>{
+					zoomAnimMem.push(ctx.toDataURL())
+					eval(E.zoomAnimEval.value)
+					zoomAnimPanel()
+					zoomAnim()
+				})
+			}
+			
+			function zoomAnimPanel() {
+				E.zoomAnimPanel.innerHTML = ""
+				zoomAnimMem.forEach((v)=>{
+					var img = document.createElement("img")
+					img.src = v
+					img.style = "width:200px;height:200px"
+					E.zoomAnimPanel.appendChild(img)
+				})
+			}
+			
+			function zoomAnimDown() {
+				E.zoomPanelMain.hidden = true
+				E.zoomPanelDown.hidden = false
+				zoomAnimDown = true
+			}
+			
+			function zoomAnimNext() {
+				if (zoomAnimDownID >= zoomAnimMem.length) {
+					E.zoomPanelMain.hidden = false
+					E.zoomPanelDown.hidden = true
+					zoomAnimDownID = 0
+				}
+				B.saveFile(zoomAnimMem[zoomAnimDownID],E.nameTemp.value + " " + zoomAnimDownID.toString(10,4))
+				zoomAnimDownID++
+			}
+		</script>
+	</head>
+	<body>
+		<canvas height="500" width="500" class="S500x500 border pixelate" style="position:absolute;top:8px;left:8px" id="main"></canvas>
+		<canvas height="500" width="500" class="S500x500 border" style="position:absolute;top:8px;left:516px" id="edit" onmouseenter="mouseOn = true" onmouseleave="mouseOn = false;putLast()"></canvas>
+		<div style="position:absolute;top:8px;left:516px;background-color:white" class="S500x500 border" hidden id="ieBack">
+			<button onclick="exp()">Export</button>
+			<button onclick="inp()">Import</button>
+			<button onclick="save()">Save</button>
+			<button onclick="newN()">New</button>
+			<textarea style="position:absolute;top:20px;left:-1px;width:496px;height:475px;resize:none" class="border" id="ie"></textarea>
+			<div style="position:absolute;top:-1px;left:500px;height:500px;overflow:auto;width:200px" class="border" id="panel">
+			</div>
+		</div>
+		<div style="position:absolute;left:8px;top:516px">
+			<button onclick="render()">Render</button>
+			<div style="height:20px;width:100px;border: 1px solid black;position:relative;bottom:22px;left:65px">
+				<div id="progress" style="height:20px;width:0px;background-color:#00ff00"></div>
+			</div>
+			<div style="height:20px;width:500px;position:relative;bottom:40px;left:175px" id="times"></div>
+		</div>
+		<div style="position:absolute;top:510px;left:516px">
+			<button  onclick="E.ieBack.hidden = !E.ieBack.hidden">Import / Export</button><br />
+			Constants<br />
+			Alpha: <input value="1" id="inp1" type="number"><br />
+			Beta: <input value="1" id="inp2" type="number"><br />
+			Gamma: <input value="1" id="inp3" type="number"><br />
+			Delta: <input value="1" id="inp4" type="number"><br />
+			Image: <input type="file" accept="image/*" onchange="reloadPID(this)" /><br />
+			Eval: <input id="eval">
+		</div>
+		<div style="position:absolute;top:538px;left:8px">
+			<button                onclick="zoom -= 1;render(true)" style="width:20px;height:20px">+</button>
+			<button onclick="offset = offset.add([0,-1]);render(true)" style="width:20px;height:20px">/\</button> 
+			<span id="pos"></span><br />
+			<button onclick="offset = offset.add([-1,0]);render(true)" style="width:20px;height:20px"><</button>
+			<button onclick="offset = offset.add([1,0]);render(true)" style="width:20px;height:20px">></button><br />
+			<button                onclick="zoom += 1;render(true)" style="width:20px;height:20px">-</button>
+			<button onclick="offset = offset.add([0,1]);render(true)" style="width:20px;height:20px">\/</button><br />
+		</div>
+		<div style="position:absolute;top:560px;left:60px">
+			Name Template: <input value="New Render {time}" id="nameTemp" /> <button onclick="saveFile()">Save</button><br />
+			Tokens:<br />
+			- {zoom} Zoom level<br />
+			- {x} X pos<br />
+			- {y} Y pos<br />
+			- {time} Time (ms)<br />
+		</div>
+		<div class="border" style="width:220px;position:absolute;top:8px;height:800px;left:1030px;overflow:scroll" id="zoomAnimPanel">
+			
+		</div>
+		<div style="position:absolute;left:1030px;top:810px">
+			<span id="zoomPanelMain">
+				<button onclick="zoomAnimActive=true;zoomAnim()">Begin</button>
+				<button onclick="zoomAnimActive=false">End</button>
+				<button onclick="zoomAnimDown()">Download</button><br />
+				<input value="zoom--" id="zoomAnimEval" />
+			</span>
+			<span id="zoomPanelDown" hidden>
+				<button onclick="zoomAnimNext()">Next</button> <span id="zoomPanelDownInd"></span>
+			</span>
+		</div>
+	</body>
+</html>

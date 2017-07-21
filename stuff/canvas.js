@@ -1,11 +1,7 @@
-/*
-	DEPENDENCES
-	
-	- prototypes.js
-*/
 B.module.require("prototypes","stuff/prototypes.js")
-B.module.init("canvas",1.001,["prototypes"],()=>{
-	window.CanvasUtil = function(canvas) {
+B.module.init("canvas",1.002,["prototypes"],()=>{
+	var window = {}
+	window.CanvasUtil = function CanvasUtil(canvas) {
 		this.canvas = canvas;
 		this.globalOffset = [0,0]
 		this.setColor = function(color) {
@@ -60,11 +56,20 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 			this.canvas.stroke()
 			return this
 		}
+		
+		this.zigzagLine = function(pos1,pos2,width = 1) {
+			this.shape([
+				pos1,
+				[(pos1[0] + pos2[0]) / 2,pos1[1]],
+				[(pos1[0] + pos2[0]) / 2,pos2[1]],
+				pos2
+			],false,width)
+		}
 
-		this.ellipse = function(pos,size,rot = 0) {
+		this.ellipse = function(pos,size,rot = [0,Math.PI * 2]) {
 			pos = pos.add(this.globalOffset)
 			this.canvas.beginPath()
-			this.canvas.ellipse(pos[0],pos[1],size[0],size[1],rot,0,Math.PI * 2)
+			this.canvas.ellipse(pos[0],pos[1],size[0],size[1],rot[0],0,rot[1])
 			this.canvas.fill()
 			return this
 		}
@@ -87,7 +92,9 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 				img.onload = ()=>{
 					this.canvas.drawImage(img,pos[0],pos[1],size[0],size[1])
 				}
-			} else {
+			} else if (str instanceof ImageData) {
+				this.canvas.putImageData(str,...pos)
+			} else 	{
 				this.canvas.drawImage(str,pos[0],pos[1],size[0],size[1])
 			}
 			return this
@@ -96,6 +103,8 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 		this.toDataUrl = function() {
 			return this.canvas.canvas.toDataURL()
 		}
+		
+		this.toDataURL = this.toDataUrl
 
 		this.clearRect = function(pos,size) {
 			pos = pos.add(this.globalOffset)
@@ -113,7 +122,9 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 			this.canvas.canvas.height = size[1]
 			return this
 		}
-
+		//--------------------------------------------------------------------------------------------------------------------------------------------
+		//                                                        !!DEPRECATED!!
+		//--------------------------------------------------------------------------------------------------------------------------------------------
 		this.sprites = []
 		this.drawSpriteColl = false
 
@@ -214,7 +225,7 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 			})
 			return ret
 		}
-
+		//-----------------------------------------------------------END OF DEPRECATED----------------------------------------------------------------
 		this.toWorld = function(pos) {
 			var realSize = [
 				parseInt(this.canvas.canvas.clientWidth),
@@ -226,8 +237,9 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 			return ret 
 		}
 
-		this.shape = function(poss,fill = true) {
+		this.shape = function(poss,fill = true,width = 1) {
 			this.canvas.beginPath()
+			this.canvas.lineWidth = width;
 			this.canvas.moveTo(poss[0][0] + this.globalOffset[0],poss[0][1] + this.globalOffset[1])
 			poss.forEach((v)=>{
 				this.canvas.lineTo(v[0] + this.globalOffset[0],v[1] + this.globalOffset[1])
@@ -240,24 +252,31 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 			
 			return this
 		}
-		this.text = function (pos,height,txt,center = false,font = "Arial",out = {}) {
+		this.text = function (pos,height,txt = "",center = false,font = "Arial") {
 			var pos = pos.add(this.globalOffset)
 			if (center == 1) {
 				pos = pos.add([0,height / 4])
 			}
 			canvas.font = height + "px " + font
 			canvas.textAlign = ["start","center","end"][center + 0]
-			canvas.fillText(txt,...pos)
-			out.width = canvas.measureText(txt).width
-			return ctx
+			txt.split("\n").forEach((v,i)=>{
+				canvas.fillText(v,...(pos.add([0,i * (height * 1.1)])))
+			})
+			
+			return this
+		}
+		this.measureText = function (height,txt,font = "Arial") {
+			canvas.font = height + "px " + font
+			var ret = canvas.measureText(txt)
+			return ret
 		}
 	}
 
-	CanvasUtil.fromElement = function(canvas) {
+	window.CanvasUtil.fromElement = function(canvas) {
 		return new CanvasUtil(canvas.getContext("2d"))
 	}
 
-	window.Pictogram = function (pixels,size) {
+	window.Pictogram = function Pictogram(pixels,size) {
 		this.pixels = pixels
 		this.size = size
 		
@@ -273,4 +292,5 @@ B.module.init("canvas",1.001,["prototypes"],()=>{
 		this.img = new Image()
 		this.img.src = canvas.toDataURL()
 	}
+	return window
 })
