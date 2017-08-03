@@ -1,0 +1,88 @@
+<html>
+	<head>
+		<script src="stuff/bUtils.js"></script>
+		<script src="stuff/canvas.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		<script>
+			var ctx
+			var tiles = [
+				
+			]
+			var playerPos = [1,1]
+			var goalPos = [1,1]
+			var tileSize = 5
+			function setup() {
+				E.tIn.value = "###\n#O#\n###"
+				B.sinc(E.tIn)
+				border()
+				ctx = new CanvasUtil(B.canvas)
+				ctx.fill()
+				setInterval(()=>{
+					ctx.setColor(colors.black).fill()
+					tiles.forEach((v)=>{
+						ctx.setColor(colors.gray).box(v.mul(tileSize),[tileSize,tileSize])
+					})
+					ctx.setColor(colors.white).box(playerPos.mul(tileSize),[tileSize,tileSize])
+					   .setColor(colors.green).box(goalPos.mul(tileSize),[tileSize,tileSize])
+				},17)
+				window.onkeydown = (event)=>{
+					if (event.key == "w") {
+						move([0,-1])
+					} else if (event.key == "s") {
+						move([0,1])
+					} else if (event.key == "a") {
+						move([-1,0])
+					} else if (event.key == "d") {
+						move([1,0])
+					}
+				}
+			}
+			
+			function move(pos) {
+				playerPos = playerPos.add(pos)
+				var coll = false
+				tiles.forEach((v)=>{
+					if (v.equals(playerPos)) {
+						coll = true
+					}
+				})
+				if (coll) {
+					playerPos = playerPos.add(pos.mul(-1))
+				}
+			}
+			
+			function border() {
+				tiles = []
+				var maxL = 0
+				var x = y = 0
+				E.tIn.value.split("\n").forEach((v)=>{
+					x = 0
+					if (v.length > maxL) {maxL = v.length}
+					v.split("").forEach((v)=>{
+						if(v == "#" || v.toLowerCase() == "x") {
+							tiles.push([x,y])
+						} else if (v == "O") {
+							playerPos = [x,y]
+						} else if (v == "+") {
+							goalPos = [x,y]
+						}
+						x++
+					})
+					y++
+				})
+				tileSize = Math.floor((200 / Math.max(maxL,E.tIn.value.split("\n").length)))
+				/*for (var i = 0;i < 200 / tileSize;i++) {
+					tiles.push([0,i])
+					tiles.push([i,0])
+					tiles.push([i, 200 / tileSize - 1])
+					tiles.push([200 / tileSize -1,i])
+				}*/
+			}
+		</script>
+	</head>
+	<body>
+		<canvas class="border S500x500 pixelate" height="200" width="200"></canvas><br />
+		<button onclick="border()">Redraw</button>
+		<textarea style="resize:none;position:absolute;top:8;left:516" id="tIn" class="S500x500 border monoscope"></textarea>
+	</body>
+</html>
