@@ -69,3 +69,19 @@ table,td, th, tr {
 .pixelate {
     image-rendering: pixelated;
 }
+
+body {
+	font-family: sans-serif;
+	font-style: normal;
+}
+
+code {
+	font-family: monospace;
+}
+
+.center {
+	position: absolute;               
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+}
