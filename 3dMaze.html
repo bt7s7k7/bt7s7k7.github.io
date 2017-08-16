@@ -1,0 +1,156 @@
+r<!DOCTYPE html>
+<html>
+	<head>
+		<script src="stuff/bUtils.js"></script>
+		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		<script>
+			require("canvas.js")
+			var ctx
+			var pos = [0,0]
+			var dir = Math.PI
+			var fov = (70) / 360 * (Math.PI * 2)
+			var world = shapes.world()
+			var speed = 0.5
+			var rotSpeed = 0.1
+			var quality = 5
+			var map = "#############|#   #    +  #|### # ##### #|#       # # #|### ### # # #|#   # # # # #|# ### # # ###|# #   #     #|# ### ### ###|#       # # #|### # # # # #|# #O# #     #|#############"
+			var testMap = "#####|# + #|# # #|# O #|#####"
+			var won = false
+			
+			
+			function setup() {
+				ctx = new CanvasUtil(B.canvas)
+				parseMap(map)
+			}
+			
+			function update() {
+				E.fps.innerText = "FPS: " + B.fps + "\nControls:\nwasd - Move\nqe - Look"
+				
+				if (B.keys.l) {
+					console.log("Asking")
+					let didError = false
+					let leave = false
+					while (!leave) {
+						let str = prompt((didError) ? "Invalid map" : "Enter new map")
+						if (!str) {
+							leave = true
+							console.log("Leaving")
+							break
+						}
+						if (str != "") {
+							try {
+								parseMap(str)
+								leave = true
+								break
+								console.log("Leaving")
+							} catch (err) {
+								console.log("Error")
+							}
+						}
+					}
+					B.keys.l = false
+				}
+				
+				if (!won) {
+					if (B.keys.q) {
+						dir -= rotSpeed
+					} else if (B.keys.e) {
+						dir += rotSpeed
+					}
+					
+					if (B.keys.w) {
+						pos = pos.add(vector.fromAngle(dir).mul(speed))
+						if (world.testPoint(pos).length > 0) {
+							pos = pos.add(vector.fromAngle(dir).mul(-speed))
+						}
+					} else if (B.keys.s) {
+						pos = pos.add(vector.fromAngle(dir).mul(-speed))
+						if (world.testPoint(pos).length > 0) {
+							pos = pos.add(vector.fromAngle(dir).mul(speed))
+						}
+
+					}
+					if (B.keys.d) {
+						pos = pos.add(vector.fromAngle(dir + Math.PI / 2).mul(speed))
+						if (world.testPoint(pos).length > 0) {
+							pos = pos.add(vector.fromAngle(dir + Math.PI / 2).mul(-speed))
+						}
+					} else if (B.keys.a) {
+						pos = pos.add(vector.fromAngle(dir + Math.PI / 2).mul(-speed))
+						if (world.testPoint(pos).length > 0) {
+							pos = pos.add(vector.fromAngle(dir + Math.PI / 2).mul(speed))
+						}
+
+					}
+					
+					var max = Math.floor(ctx.getSize()[0] / quality)
+					var theight = ctx.getSize()[1]
+					var middle = theight / 2
+					ctx.setColor(colors.brown).fill().setColor(colors.blue).box([0,0],ctx.getSize().scale([1,0.5]))
+					var buffer = []
+					repeat(max,i=>{
+						var hit = world.raycast(pos,vector.fromAngle((dir - fov / 2) + (fov / max * i)),500,[0,1],0.5)
+						if (hit) {
+							let height = theight - hit.dist * 10
+							buffer[i] = {height:height,color:((hit.shape.layer != 1) ? colors.white : colors.green).mul(1 - Math.log10(hit.dist / 5))}
+						} else {
+							buffer[i] = {height:0,color:colors.black}
+						}
+					})
+					buffer.forEach((v,i,a)=>{
+						var x = i * quality
+						var next = a[i + 1] || v
+						if (next.height < 0) {
+							next = v
+						}
+						if (v.height > 0) {
+							ctx.setColor(v.color).shape([
+								[x,middle - v.height / 2],
+								[x + quality,middle - next.height / 2],
+								[x + quality,middle + next.height / 2],
+								[x,middle + v.height / 2]
+							])
+						}
+					})
+					
+					ctx.setColor(colors.black).line([30,30],[30,30].add(vector.fromAngle(dir).mul(20)),2)
+					   .setColor(colors.red).ellipse([30,30],[5,5])
+				} else {
+					ctx.setColor(colors.yellow).fill()
+					   .setColor(colors.black).text(ctx.getSize().mul(0.5),30,"You won",true)
+					   .text(ctx.getSize().mul(0.5).add([0,20]),20,"Press L to load another level",true)
+				}
+				
+				   
+				if (world.testPoint(pos,[1]).length > 0) {
+					won = true
+				}
+			}
+			
+			function parseMap(map) {
+				won = false
+				var coll = map.split("|")
+				var pointG = shapes.pointGrid([coll.length,coll.length],10)
+				world.objects.length = 0
+				coll.forEach((v,y)=>{
+					v.split("").forEach((v,x)=>{
+						if (v == "x" || v == "#") {
+							pointG.set([x,y].mul(10),true)
+						} else if (v == "O") {
+							pos = [x,y].mul(10).add([5,5])
+						} else if (v == "+") {
+							let rect = shapes.rect([x,y].mul(10).add([1,1]),[8,8])
+							rect.layer = 1
+							world.objects.push(rect)
+						}
+					})
+				})
+				world.objects.push(pointG)
+			}
+		</script>
+	</head>
+	<body style="background-color:#222222">
+		<canvas width="500" height="500" class="center border S500x500 pixelate" style="background:black"></canvas>
+		<span id="fps" style="color:white"></span>
+	</body>
+</html>

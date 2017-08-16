@@ -1,7 +1,9 @@
+console.group("Init")
 B = {}
 B.isWorker = typeof document == "undefined" || typeof window == "undefined"
 var hadScriptError = false
 if (B.isWorker) {
+	
 	B.ready = false
 	B.parentUrl = null
 	onmessage = (msg)=>{
@@ -36,6 +38,8 @@ if (B.isWorker) {
 		}
 	}
 } else {
+	B.keys = {}
+	B.pathTo = document.currentScript.src.split("/").slice(0,-1).join("/")
 	B.src = document.currentScript.src
 	B.worker = {
 		reference: new Worker(B.src),
@@ -55,17 +59,13 @@ if (B.isWorker) {
 		var data = msg.data
 		var messages = {
 			"return": ()=>{
-				try {
+				if (B.worker.exeQueue[data.uid]) {
 					var extract = B.worker.exeQueue.splice(data.uid,1)[0](data.data || {})
-				} catch(err) {
-					
 				}
 			},
 			"status": ()=>{
-				try {
-				B.worker.exeQueue[data.uid].prom.status = data.status
-				} catch(err) {
-					
+				if (B.worker.exeQueue[data.uid]) {
+					B.worker.exeQueue[data.uid].prom.status = data.status
 				}
 			}
 		}
@@ -100,9 +100,14 @@ if (B.isWorker) {
 	B.updateInterval = true
 
 	window.onload = function(){
-		try {
-			setTimeout(setup,0)
-		} catch (err) {}
+		
+		document.body.addEventListener("keydown",event=>{
+			B.keys[event.key] = true
+		})
+		document.body.addEventListener("keyup",event=>{
+			B.keys[event.key] = false
+		})
+		
 		var updateFunc = (auto)=>{
 			if (!hadScriptError) {
 				requestAnimationFrame(updateFunc)
@@ -120,7 +125,6 @@ if (B.isWorker) {
 			end = performance.now()
 			B.renderTime = end - start
 			B.fps = 1000 / B.renderTime
-			
 			
 			if (err) {
 				hadScriptError = true
@@ -152,8 +156,17 @@ if (B.isWorker) {
 		B.reload()
 		if (!hadScriptError) {
 			setTimeout(requestAnimationFrame,10,updateFunc)
+			if (window.setup) {
+				try {
+					setup()
+				} catch(err) {
+					err.name = "[Setup] " + err.name
+					throw err
+				}
+			}
+
 		}
-		
+		console.groupEnd("Init")
 	}
 
 	window.onunload = function () {
@@ -184,6 +197,7 @@ if (B.isWorker) {
 			throw error
 		}
 	}
+	
 
 	B.swap = function(e1,e2) {
 		var v1 = e1.hidden
@@ -303,7 +317,7 @@ B.module = {
 	},
 	require: function (name,path){
 		if (typeof path == "undefined") {
-			path = document.currentScript.src.split("/").slice(0,-1).join("/") + "/" + name
+			path = B.pathTo + "/" + ((name.indexOf(".js") != -1) ? name : name + ".js")
 		}
 		if (typeof document != "undefined") {
 			if (B.module.list[name] == undefined) {
@@ -817,6 +831,8 @@ Array.prototype.random = function() {
 	return this[Math.floor(Math.random() * (this.length))]
 }
 
+
+
 Object.defineProperty(Array.prototype,"x",{get:function(){return this[0]},set:function(val){this[0] = val;return value}})
 Object.defineProperty(Array.prototype,"y",{get:function(){return this[1]},set:function(val){this[1] = val;return value}})
 Object.defineProperty(Array.prototype,"z",{get:function(){return this[2]},set:function(val){this[2] = val;return value}})
@@ -909,7 +925,8 @@ colors = {
 	lightGrey: [191,191,191],
 	orange: [255,127,0],
 	softGreen: [0, 50, 50],
-	notepad: [11,22,29]
+	notepad: [11,22,29],
+	brown: [195,104,0]
 }
 
 vector = {
@@ -927,12 +944,16 @@ vector = {
 	lerp: function (start,end,fraction) {
 		var diff = start.add(end.mul(-1))
 		return start.add(diff.mul(-fraction))
+	},
+	fromAngle: function (a) {
+		return [Math.sin(a),Math.cos(a)]
 	}
 }
 
 shapes = {
 	rect: function (pos,size) {
 		return {
+			type: "rect",
 			pos : pos,
 			size : size,
 			volume : size[0] * size [1],
@@ -963,11 +984,13 @@ shapes = {
 				})
 				match = match || this.testPoint(b.pos)
 				return match
-			}
+			},
+			layer: 0
 		}
 	},
 	circle: function (pos,radius) {
 		return {
+			type: "circle",
 			radius: radius,
 			pos: pos,
 			circumference: 2 * radius * Math.PI,
@@ -980,15 +1003,100 @@ shapes = {
 			},
 			testPoint: function(pos) {
 				return pos.dist(this.pos) <= this.radius
+			},
+			layer: 0
+		}
+	},
+	world: function () {
+		return {
+			objects: [],
+			testCircle: function (c,layer = [0]) {
+				var ret = []
+				this.objects.forEach(v=>{
+					if (v.testCircle(c) && layer.indexOf(v.layer) != -1) {
+						ret.push(v)
+					}
+				})
+				return ret
+			},
+			testPoint: function (c,layer = [0]) {
+				var ret = []
+				this.objects.forEach(v=>{
+					if (v.testPoint(c) && layer.indexOf(v.layer) != -1) {
+						ret.push(v)
+					}
+				})
+				return ret
+			},
+			testRect: function (c,layer = [0]) {
+				var ret = []
+				this.objects.forEach(v=>{
+					if (v.testRect(c) && layer.indexOf(v.layer) != -1) {
+						ret.push(v)
+					}
+				})
+				return ret
+			},
+			raycast: function (pos,dir,max = 500,layer = [0],step = 0.1) {
+				var dir = dir.normalize()
+				var hit = null
+				repeat(Math.ceil(max / step),i=>{
+					var curr = i * step
+					var test = pos.add(dir.mul(curr))
+					var hits = this.testPoint(test,layer)
+					var shape = hits[0]
+					
+					
+					if (hits.length > 0) {
+						hit = {
+							shape,
+							pos: test,
+							dist: test.dist(pos)
+						}
+						return true
+					}
+					
+				})
+				return hit
 			}
 		}
+	},
+	pointGrid: function(size,mul = 1,offset = [0,0]) {
+		var ret =  {
+			type: "pointGrid",
+			size,
+			mul,
+			offset,
+			points: Array.getFilled(size[0] * size[1],false),
+			get: function(pos) {
+				var pos = pos.add(offset.mul(-1)).mul(1 / mul).map(v=>Math.floor(v))
+				if (pos[0] >= size[0] || pos[0] < 0 || pos[1] >= size[1] || pos[1] < 0) return
+				return ret.points[pos[0] + pos[1] * size[0]]
+			},
+			set: function (pos,val) {
+				var pos = pos.add(offset.mul(-1)).mul(1 / mul)
+				ret.points[pos[0] + pos[1] * size[0]] = val
+			},
+			testPoint: function (pos) {
+				return ret.get(pos)
+			},
+			testRect: function (rect) {
+				return shapes.rect(pos,[1,1].mul(mul)).testRect(rect)
+			},
+			testCircle: function (rect) {
+				return shapes.rect(pos,[1,1].mul(mul)).testCircle(rect)
+			},
+			layer: 0
+		}
+		return ret
 	}
-
 }
+
+
 
 repeat = function(times = 1,func) {
 	for (var i = 0;i < times;i++) {
-		func(i)
+		if (func(i)) return
 	}
 }
 
@@ -1013,4 +1121,8 @@ Object.prototype.forEach = function(func) {
 	Object.keys(this).forEach((v)=>{
 		func(this[v],v,this)
 	})
+}
+
+if (B.isWorker) {
+	console.groupEnd("Init")
 }
