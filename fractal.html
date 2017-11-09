@@ -4,6 +4,7 @@
 		<script src="stuff/bUtils.js"></script>
 		<script src="stuff/editor.js"></script>
 		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+		
 		<script>
 			var ctx
 			var editor
@@ -11,7 +12,9 @@
 			var takes = 0
 			var mouseOn = false
 			var lastRendered = new ImageData(500,500)
-			var providedImageData = new ImageData(500,500)
+			var providedImageData1 = new ImageData(500,500)
+			var providedImageData2 = new ImageData(500,500)
+			var providedImageData3 = new ImageData(500,500)
 			var offset = [0,0]
 			var zoom = 0
 			
@@ -20,44 +23,58 @@
 			var zoomAnimDowning = false
 			var zoomAnimDownID = 0
 			function setup() {
-				
+				nodeLibaries.math()
 				refreshPanel()
 				ctx = new CanvasUtil(E.main.getContext("2d"))
 				ctx.setColor(colors.black).fill()
 				editor = new Editor(new ImmediateUI(new CanvasUtil(E.edit.getContext("2d"))),[400,250],["number","number","number"])
 				editor.iui.bgColor = colors.notepad.mul(2)
-				
-				nodeLibaries.math()
-				nodeLibaries.logic()
-				nodeLibaries.trig()
-				
-				allNodes.push(new EditorNode("X Y",([inp = 1,ofX = 0,ofY = 0,pi = false],glob) => {
-					var inp = inp * (glob.zoom || 1)
+				allNodes.push(editorNode("X Y",`{
+					let inp = (#A || 1) * (#GLOBAL.zoom || 1)
+					let ofX = #B || 0
+					let ofY = #C || 0
+					let pi = #D
+					let glob = #GLOBAL
 					if (pi) {
-						return [glob.x * inp + ofX * Math.PI,glob.y * inp + ofY * Math.PI]
+						#RETURN = [glob.x * inp + ofX * Math.PI,glob.y * inp + ofY * Math.PI]
 					} else {
-						return [glob.x * inp + ofX,glob.y * inp + ofY]
+						#RETURN = [glob.x * inp + ofX,glob.y * inp + ofY]
 					}
-				},["number","number","number","truth"],["number","number"]))
-				allNodes.push(new EditorNode("Constants",(inp,glob) => {
-					return glob.consts
-				},[],["number","number","number","number"]))
-				allNodes.push(new EditorNode("Image",([x,y],glob) => {
-					return glob.pid.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
-				},["number","number"],["number","number","number"]))
-				allNodes.push(new EditorNode("Eval",([a = 0,b = 0],glob)=>{
-					
+				}`,["number","number","number","truth"],["number","number"]))
+				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants",[],["number","number","number","number"]))
+				allNodes.push(editorNode("Image 1",`{
+					let x = #A || 0
+					let y = #B || 0
+					let glob = #GLOBAL
+					#RETURN = glob.pid.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
+				}`,["number","number"],["number","number","number"]))
+				allNodes.push(editorNode("Image 2",`{
+					let x = #A || 0
+					let y = #B || 0
+					let glob = #GLOBAL
+					#RETURN = glob.pid1.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
+				}`,["number","number"],["number","number","number"]))
+				allNodes.push(editorNode("Image 3",`{
+					let x = #A || 0
+					let y = #B || 0
+					let glob = #GLOBAL
+					#RETURN = glob.pid2.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
+				}`,["number","number"],["number","number","number"]))
+				allNodes.push(editorNode("Eval",`{
+					let a = #A
+					let b = #B
+					let glob = #GLOBAL
 					with (glob) {
 						var ret = eval(glob.evalS)
 						if (ret instanceof Array) {
-							return ret
+							#RETURN = ret
 						} else if (typeof ret == "number") {
-							return [ret]
+							#RETURN = [ret]
 						} else {
-							return
+							
 						}		
 					}
-				},["number","number"],["number","number"]))
+				}`,["number","number"],["number","number"]))
 				if (typeof B.l.saves != "object") {
 					B.l.saves = {}
 				}
@@ -68,18 +85,24 @@
 					}
 					
 				}
+				
 				setInterval(()=>{
-					takes = B.timedCall(editor.execCompiled,editor.prebakeCompiled(editor.compile()),{x:0,y:0,pid:providedImageData,offset,zoom,evalS:E.eval.value}) + takes
-					takes /= 2
-					if (mouseOn) {
-						render(1)
+					try {
+						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
+						if (mouseOn) {
+							render(1)
+						}
+					} catch (err) {
+						ctx.setColor(colors.black).fill().setColor(colors.red).text([0,100],10,err.stack)
 					}
+					
 				},100)
 				render(true)
 			}
 			
 			function update() {
 				editor.iui.update()
+				
 				E.progress.style.width = 100 * prom.status + "px"
 				E.times.innerText = "Will take: " + Math.floor(takes * 500 * 500 / 1000) + "s"
 				offset = offset.map((v)=>{
@@ -87,14 +110,12 @@
 				})
 				E.pos.innerText = "Pos: " + offset.toString() + " Zoom: " + zoom
 				E.zoomPanelDownInd.innerText = zoomAnimDownID
+				
 			}
 			
 			function render(preview,callback = ()=>{}) {
-				var compiled = editor.compile()
 				var promis = B.worker.execute((data)=>{
 					var size = (data.preview) ? 50 : 500
-					var prebake = eval(data.prebake)
-					data.compiled = prebake(data.compiled)
 					var zoom = data.zoom
 					if (zoom == 0) {
 						zoom = 1
@@ -111,7 +132,7 @@
 						})
 						zoom = begin
 					}
-					eval(data.exec)
+					var func = eval(data.compiled)
 					var img = new ImageData(size,size)
 					repeat(size,(x)=>{
 						repeat(size,(y)=>{
@@ -122,18 +143,18 @@
 								var base = base + (data.offset[i]) / 10
 								return base
 							})
- 							img.setPixel([x,y],exec(data.compiled,{x:ix,y:iy,consts: data.consts,pid:data.pid,evalS:data.eval}).mul(255))
+ 							img.setPixel([x,y],func({x:ix,y:iy,consts: data.consts,pid:data.pid,pid1:data.pid1,pid2:data.pid2,evalS:data.eval}).mul(255))
 						})
 						status(x / size)
 					})
 					return img
 				},{
-					compiled,
-					exec: "var exec = " + editor.execCompiled.toString(),
+					compiled : editor.compile().toString(),
 					preview,
-					prebake: editor.prebakeCompiled.toString(),
 					consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),
-					pid: providedImageData,
+					pid: providedImageData1,
+					pid1: providedImageData2,
+					pid2: providedImageData3,
 					zoom,
 					offset,
 					eval: E.eval.value
@@ -150,7 +171,7 @@
 						lastRendered = data
 					}
 					callback()
-				})
+				},()=>{})
 			}
 			
 			function exit() {
@@ -189,6 +210,8 @@
 						return w.name == v.type
 					})[0]
 					return v
+				}).filter((v)=>{
+					return v.type
 				})
 				
 				editor.nodes.forEach((v,_,arr)=>{
@@ -237,7 +260,7 @@
 				ctx.load(lastRendered)
 			}
 			
-			function reloadPID(elem) {
+			function reloadPID(elem,number) {
 				var file = elem.files[0]
 				var img = new Image()
 				img.onload = ()=>{
@@ -245,7 +268,7 @@
 					var ctx = new CanvasUtil(canvas.getContext("2d"))
 					ctx.setSize([500,500])
 					ctx.load(img)
-					providedImageData = ctx.canvas.getImageData(0,0,500,500)
+					self["providedImageData" + (number + 1)] = ctx.canvas.getImageData(0,0,500,500)
 				}
 				img.src = URL.createObjectURL(file)
 				
@@ -305,6 +328,7 @@
 				zoomAnimDownID++
 			}
 		</script>
+		
 	</head>
 	<body>
 		<canvas height="500" width="500" class="S500x500 border pixelate" style="position:absolute;top:8px;left:8px" id="main"></canvas>
@@ -332,7 +356,9 @@
 			Beta: <input value="1" id="inp2" type="number"><br />
 			Gamma: <input value="1" id="inp3" type="number"><br />
 			Delta: <input value="1" id="inp4" type="number"><br />
-			Image: <input type="file" accept="image/*" onchange="reloadPID(this)" /><br />
+			Image 1: <input type="file" accept="image/*" onchange="reloadPID(this,0)" /><br />
+			Image 2: <input type="file" accept="image/*" onchange="reloadPID(this,1)" /><br />
+			Image 3: <input type="file" accept="image/*" onchange="reloadPID(this,2)" /><br />
 			Eval: <input id="eval">
 		</div>
 		<div style="position:absolute;top:538px;left:8px">

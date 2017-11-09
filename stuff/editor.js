@@ -37,12 +37,24 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 		
 		this.contextOpen = false
 		this.contextPos = [0,0]
+		this.scrollOffset = 0;
 		this.offset = [0,0]
 		this.selected = {
 			node: null,
 			portNum: 0,
 			type: "",
 		}
+		
+		iui.ctx.canvas.canvas.addEventListener("wheel",event=>{
+			if (event.deltaY < 0 && this.scrollOffset > 0) {
+				this.scrollOffset--
+			} else if (event.deltaY < 0 && this.scrollOffset <= 0) {
+				this.scrollOffset = module.allNodes.length - 1
+			} else {
+				this.scrollOffset++
+			}
+			event.preventDefault()
+		})
 		
 		iui.layers.ground.push((gui)=>{
 			if (gui.iui.keyBuffer.indexOf("r") != -1) {
@@ -116,9 +128,10 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 			if (this.contextOpen) {
 				var menu = gui.rect({pos:this.contextPos,size:[0,0]})
 				var spawned = false
-				module.allNodes.forEach((v,i)=>{
-					if (menu.button({pos:[100 * Math.floor(i / contextLimit),15 * (i % contextLimit)],size:[100,15],txt:v.name.replace(/\n/g," "),textHeight:10}).test.lClick && !spawned) {
-						this.addNode(v,this.contextPos.add(this.offset.mul(-1)))
+				repeat(contextLimit,(i)=>{
+					var curr = module.allNodes[(i + this.scrollOffset) % module.allNodes.length]
+					if (menu.button({color:curr.color,pos:[100 * Math.floor(i / contextLimit),15 * (i % contextLimit)],size:[100,15],txt:curr.name.replace(/\n/g," "),textHeight:10}).test.lClick && !spawned) {
+						this.addNode(curr,this.contextPos.add(this.offset.mul(-1)))
 						spawned = true
 					}
 				})
@@ -146,77 +159,68 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 				name: "Out",
 				inputPorts: outputFields,
 				outputPorts:[],
-				func: "func = " + (new Function ("inp","global","global.finalVal = ["+ Array.getFilled(outputFields.length,"inp").map((v,i)=>{
-					return v + "[" + i + "] || " + 0
-				}).join(",") +"]")).toString(),
+				func: "#GLOBAL.FINAL_VAR = #INPUTS",
 				indestructable:  true
 			},ouputPos)
 		}
 		
-		this.compile = ()=> {
-			var editor = this
-			if (outputFields.length <= 0) {
-				throw new Error("A node chain can not be compiled without the destination Out node.")
-			}
-			var connMap = {node:this.nodes[0],inputs:[],outNum:0,id:0}
-			var recursiveChain = function (connMap) {
-				connMap.node.inputConn.forEach((v,i)=>{
-					if (!v.node) {return}
-					var newConnMap = {node:v.node,inputs:[],outNum:v.portNum,id:editor.nodes.indexOf(v.node)}
-					connMap.inputs[i] = newConnMap
-					recursiveChain(newConnMap)
-				})
-			}
-			recursiveChain(connMap)
+		this.compile = (nodeID = 0)=>{
+			var editor = this;
+			var code = ["// Automaticaly generated code from editor.js","// By bt7s7k7","var VALUES = []",""];
+			var parsedList = []
+			var all = []
+			var parsingID = -1;
 			
-			var functionMap = {func: this.nodes[0].type.func.toString(),inputs:[],outNum:0,id:0}
-			var recursiveFunc = function (funcMap,connMap) {
-				connMap.inputs.forEach((v,i)=>{
-					if (!v) {return}
-					funcMap.inputs[i] = {func: v.node.type.func.toString(),inputs:[],outNum:v.outNum,id:v.id}
-					recursiveFunc(funcMap.inputs[i],v)
-				})
-			}
-			recursiveFunc(functionMap,connMap)
-			return functionMap		}
-		
-		this.execCompiled = function (funcMap,global = {}) {
-			var cache = []
-			var walker = function (func) {
-				if (cache[func.id]) {
-					var retA = cache[func.id]
-				} else {
-					var inp = []
-					inp = func.inputs.map((v,i)=>{return walker(v)})
-					if (typeof func.func != "function") {
-						var fun = eval(func.func)
-					} else {
-							var fun = func.func
-					}
-					var retA = fun(inp,global) || []
-					cache[func.id] = retA
+			var parser = function (toMap,outputNum) {
+				parsingID++;
+				var curr = {node: toMap,id: parsingID,inputs: [],outputNum,type: toMap.type,globalID:editor.nodes.indexOf(toMap)}
+				all[curr.globalID] = {node:curr.node,wasWrittiten:false,globalID:curr.globalID}
+				if (parsingID == 0) {
+					origin = curr
 				}
-				
-				var ret = retA[func.outNum]
-				return ret
-			}
-			walker(funcMap)
-			return global.finalVal
-		}
-		
-		this.execDirect = function (global = {}) {
-			return this.execCompiled(this.compile(),global)
-		}
-		
-		this.prebakeCompiled = (compiled)=>{
-			var walker = function (...args) {
-				args[0].func = eval(args[0].func)
-				args[0].inputs.forEach((v)=>{
-					walker(v)
+				toMap.inputConn.forEach((v,i)=>{
+					if (v.node) {
+						curr.inputs[i] = parser(v.node,v.portNum)
+					} else {
+						curr.inputs[i] = null;
+					}
+					
 				})
+				return curr;
 			}
-			walker(compiled)
-			return compiled
+			var writer = function(toWrite) {
+				var curr = all[toWrite.globalID]
+				if (curr.wasWrittiten) return;
+				var ids = []
+				toWrite.inputs.forEach((v,i)=> {
+					if (v) {
+						writer(v)
+						ids[i] = "VALUES["+ v.globalID +"][" + v.outputNum + "]"
+					} else {
+						ids[i] = "0"
+					}
+				})
+				code.push("// " + toWrite.type.name + " #" + toWrite.globalID)
+				code.push("VALUES[" + toWrite.globalID + "] = []")
+				var funcCode = toWrite.type.func.toString()
+				funcCode = funcCode.replace(/#RETURN/g,"VALUES[" + toWrite.globalID + "]")
+				                   .replace(/#INPUTS/g,"["+ ids.join(",") +"]")
+								   .replace(/#GLOBAL/g,"global")
+				ids.forEach((v,i)=> {
+					funcCode = funcCode.replace(new RegExp("#"+ (("ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i])||"A"),"g"),v)
+				})
+				code.push(funcCode)
+				code.push("")
+				curr.wasWrittiten = true
+				
+			}
+			
+			var origin = parser(editor.nodes[nodeID],false)
+			writer(origin)
+			code.push("")
+			code.push("return global.FINAL_VAR || []")
+			var ret = code.join("\n")
+			return eval("(global = {})=>{\n"+ ret +"\n}")
 		}
 	}
 	docs.endObject()
@@ -237,11 +241,14 @@ Here is an example of an addition --EditorNode--.
 	--return-- inp[--0--] + inp[--1--]
 }),["number","number"],["number"])**`
 )
-	module.EditorNode = function EditorNode(name,func = ()=>{},inputPorts = [],outputPorts = []) {
-		this.name = name
-		this.func = func
-		this.inputPorts = inputPorts
-		this.outputPorts = outputPorts
+	module.editorNode = function editorNode(name,func = "",inputPorts = [],outputPorts = [],color = colors.voidGrey) {
+		return {
+			name,
+			func,
+			inputPorts,
+			outputPorts,
+			color
+		}
 	}
 	docs.endObject()
 	module.allNodes = []
@@ -255,111 +262,28 @@ colorMath
 	)
 	module.nodeLibaries = {
 		math: ()=>{
-			module.allNodes.push(new module.EditorNode("Add +",([a = 0,b = 0]) => {
-				return [a + b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Buffer",([a = 0]) => {
-				return [a]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("One Minus",([a = 0]) => {
-				return [1 - a]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Substract -",([a = 0,b = 0]) => {
-				return [a - b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Divide /",([a = 0,b = 0]) => {
-				return [a / b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Multiply *",([a = 0,b = 0]) => {
-				return [a * b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Modulo %",([a = 0,b = 0]) => {
-				return [a % b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Power **",([a = 0,b = 0]) => {
-				return [a ** b]
-			},["number","number"],["number"]))
-			module.allNodes.push(new module.EditorNode("0.1",(inp) => {
-				return [0.1]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("0.5",(inp) => {
-				return [0.5]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("01",(inp) => {
-				return [1]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("02",(inp) => {
-				return [2]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("05",(inp) => {
-				return [5]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("10",(inp) => {
-				return [10]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("255",(inp) => {
-				return [255]
-			},[],["number"]))
-			module.allNodes.push(new module.EditorNode("Random",([inp = 1]) => {
-				return [Math.random(inp)]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Floor",([inp = 100]) => {
-				return [Math.floor(inp)]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Abs",([inp = 100]) => {
-				return [Math.abs(inp)]
-			},["number"],["number"]))
+			var color = colors.red.mul(0.5)
+			module.allNodes.push(module.editorNode("+","#RETURN = [(#A || 0) + (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("-","#RETURN = [(#A || 0) - (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("*","#RETURN = [(#A || 0) * (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("/","#RETURN = [(#A || 0) / (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("%","#RETURN = [(#A || 0) % (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("**","#RETURN = [(#A || 0) ** (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("Buffer","#RETURN = [(#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("One Minus","#RETURN = [(#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Random","#RETURN = [Math.random(#A || 1)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Abs","#RETURN = [Math.abs(#A)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Floor","#RETURN = [Math.floor(#A)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("0","#RETURN = [0]",[],["number"],color))
+			module.allNodes.push(module.editorNode("0.1","#RETURN = [0.1]",[],["number"],color))
+			module.allNodes.push(module.editorNode("0.5","#RETURN = [0.5]",[],["number"],color))
+			module.allNodes.push(module.editorNode("1","#RETURN = [1]",[],["number"],color))
+			module.allNodes.push(module.editorNode("2","#RETURN = [2]",[],["number"],color))
+			module.allNodes.push(module.editorNode("5","#RETURN = [5]",[],["number"],color))
+			module.allNodes.push(module.editorNode("10","#RETURN = [10]",[],["number"],color))
+			module.allNodes.push(module.editorNode("100","#RETURN = [100]",[],["number"],color))
+			module.allNodes.push(module.editorNode("255","#RETURN = [255]",[],["number"],color))
 		},
-		logic: ()=>{
-			module.allNodes.push(new module.EditorNode("True",(inp)=> {
-				return [true]
-			},[],["truth"]))
-			module.allNodes.push(new module.EditorNode("False",(inp)=> {
-				return [false]
-			},[],["truth"]))
-			module.allNodes.push(new module.EditorNode("And",([a = false,b = false])=> {
-				return [a && b]
-			},["truth","truth"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Or",([a = false,b = false])=> {
-				return [a || b]
-			},["truth","truth"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Xor",([a = false,b = false])=> {
-				return [a != b]
-			},["truth","truth"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Equals",([a = false,b = false])=> {
-				return [a == b]
-			},["number","number"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Greater Than",([a = false,b = false])=> {
-				return [a > b]
-			},["number","number"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Lower Than",([a = false,b = false])=> {
-				return [a < b]
-			},["number","number"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Not",([a = false])=> {
-				return [!a]
-			},["truth"],["truth"]))
-			module.allNodes.push(new module.EditorNode("Truth To\nNumber",([a = false])=> {
-				return [(a) ? 1 : 0]
-			},["truth"],["number"]))
-			module.allNodes.push(new module.EditorNode("Number\nTo Truth",([a = 0])=> {
-				return [(a) ? true : false]
-			},["number"],["truth"]))
-			
-		},
-		trig: ()=>{
-			module.allNodes.push(new module.EditorNode("Sin",([inp = 0])=>{
-				return [Math.sin(inp)]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Cos",([inp = 0])=>{
-				return [Math.cos(inp)]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("Tan",([inp = 0])=>{
-				return [Math.tan(inp)]
-			},["number"],["number"]))
-			module.allNodes.push(new module.EditorNode("PI",([inp = 1])=>{
-				return [Math.PI * inp]
-			},["number"],["number"]))
-		}
 	}
 	return module
 })
