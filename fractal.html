@@ -88,7 +88,7 @@
 				
 				setInterval(()=>{
 					try {
-						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
+						takes = B.timedCall(editor.compile(),{x:0,y:0,consts:Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
 						if (mouseOn) {
 							render(1)
 						}
