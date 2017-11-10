@@ -41,7 +41,7 @@
 						#RETURN = [glob.x * inp + ofX,glob.y * inp + ofY]
 					}
 				}`,["number","number","number","truth"],["number","number"]))
-				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants",[],["number","number","number","number"]))
+				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants || #GLOBAL.consts",[],["number","number","number","number"]))
 				allNodes.push(editorNode("Image 1",`{
 					let x = #A || 0
 					let y = #B || 0
