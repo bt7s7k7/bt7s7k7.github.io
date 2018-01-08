@@ -106,6 +106,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			}
 		}
 		
+		B.tick = 0
 		B.globalValues = {}
 		B.updateInterval = true
 		B.elemOnUpdate = []
@@ -161,7 +162,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				eventFunc()
 			})
 			
-			var updateFunc = (auto)=>{
+			var updateFunc = (auto)=>{//@@@update
 				if (!hadScriptError) {
 					requestAnimationFrame(updateFunc)
 				}
@@ -177,6 +178,8 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				}
 				end = performance.now()
 				B.renderTime = end - start
+				B.tick += 1
+				B.tick = B.tick % Number.MAX_SAFE_INTEGER
 				B.fps = 1000 / B.renderTime
 				B.elemOnUpdate.forEach(v=>{
 					var func = new Function (v.getAttribute("onupdate"))
@@ -918,6 +921,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			process.stdin.setRawMode(mode)
 		},
 		readline: function(callback,prompt = "") {
+			B.io.end()
 			var rl = readline.createInterface({
 				input: process.stdin,
 				output: process.stdout
@@ -925,6 +929,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			rl.question(prompt,(data)=>{
 				callback(data)
 				rl.close()
+				B.io.begin(B.io.ondata,B.io.raw)
 			})
 		},
 		getSize: function() {
@@ -939,7 +944,34 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		clearLine: function () {
 			readline.clearLine(process.stdout)
 		},
-		
+		keys: {
+			HOME: "\u001b[1",
+			INSERT: "\u001b[2",
+			DELETE: "\u001b[3",
+			END: "\u001b[4",
+			PAGE_UP: "\u001b[5",
+			PAGE_DOWN: "\u001b[6",
+			TAB: "\t",
+			ENTER: "\r",
+			UP: "\u001b[A",
+			DOWN: "\u001b[B",
+			RIGHT: "\u001b[C",
+			LEFT: "\u001b[D",
+			ESC: "\u001b",
+			BACK: "\b",
+			F1: "\u001b[[A",
+			F2: "\u001b[[B",
+			F3: "\u001b[[C",
+			F4: "\u001b[[D",
+			F5: "\u001b[[E",
+			F6: "\u001b[17",
+			F7: "\u001b[18",
+			F8: "\u001b[19",
+			F9: "\u001b[20",
+			F10: "\u001b[21",
+			F11: "\u001b[23",
+			F12: "\u001b[24"
+		}
 	}
 	Object.assign(B,{
 		write: B.io.write,
@@ -1028,11 +1060,13 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 	B.format = {
 		middle: function(str) {
 			var width = (B.io.getSize()[0] / 2).floor() - (str.length / 2).floor()
-			B.log(" ".repeat(width) + str)
+			B.write("\r")
+			B.io.moveCursor([width,0])
+			B.log(str)
 		},
 		middleVertical:function(textH) {
 			var width = (B.io.getSize()[1] / 2).floor() - (textH / 2).floor()
-			B.log.repeat(width)
+			B.setCursor([0,width])
 		},  
 		pipes: {
 			smooth: [
@@ -1054,7 +1088,12 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				["#","#","#"],
 				["#"," ","#"],
 				["#","#","#"]
-			]
+			],
+			none: [
+				[" "," "," "],
+				[" "," "," "],
+				[" "," "," "]
+			],
 		},
 		rect: function(pos,size,_text = "",pipes = "smooth",textColor = "white",borderColor = "white") {
 			var pipes = this.pipes[pipes]
@@ -1084,6 +1123,56 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			
 			B.io.setCursor(pos.add([0,size[1] -1]))
 			B.write(B.chalk[borderColor](pipes[2][0] + pipes[2][1].repeat(size[0] - 2) + pipes[2][2]))
+		},
+		createSelList: function(labels,size,confirmFunc = ()=>{},selectType = "color") {
+			var list = {
+				labels,selectType,confirmFunc,size,
+				index: 0,
+				scroll: 0,
+				draw: function(pos) {
+					list.labels.forEach((v,i)=>{
+						var y = i - list.scroll
+						if (y < 0) return
+						if (y > list.size[1]) return
+						B.io.setCursor([pos[0],pos[1] + y])
+						if (i != list.index) {
+							B.write(v + Array.getFilled(list.size[1] - v.length," ").join(""))
+						} else {
+							if (list.selectType == "color") {
+								B.write(B.chalk.inverse(v + Array.getFilled(list.size[1] - v.length," ").join("")) + B.chalk.reset(""))
+							} else if (list.selectType == "arrows") {
+								B.write("> " + v + " <" + Array.getFilled(list.size[1] - v.length - 4," ").join(""))
+							}
+						}
+						
+					})
+				},
+				select: function (offset) {
+					list.index = Math.overflow(list.index + offset,0,list.labels.length - 1)
+					if (list.index < list.scroll) {
+						list.scroll = list.index
+					}
+					if (list.index > list.scroll + list.size[1]) {
+						list.scroll += list.index - (list.scroll + list.size[1])
+					}
+				},
+				handleInput : function(input,upKey = B.io.keys.UP,downKey = B.io.keys.DOWN,confirm = B.io.keys.ENTER) {
+					input = input.toString()
+					if (input == upKey) {
+						list.select(-1)
+						return true
+					} else if (input == downKey) {
+						list.select(1)
+						return true
+					} else if (input == confirm) {
+						list.confirmFunc(list.index)
+						return true
+					}
+					return false
+				}
+			}
+			
+			return list
 		}
 	}
 }
@@ -1441,6 +1530,41 @@ Array.prototype.toAxis = function() {
 Array.prototype.last = function() {
 	return this[this.length - 1]
 }
+Array.prototype.toAngle = function() {
+	return Math.atan2(this[0],this[1])
+}
+Array.prototype.project = function(other) {
+	var dot = this.dot(other)
+	return [dot * other[0],dot * other[1]]
+}
+
+Array.lastOp = []
+Array.prototype.begin = function() {
+	Array.lastOp = this
+	return this
+}
+Array.prototype.end = function() {
+	this.copyTo(Array.lastOp)
+	return Array.lastOp
+}
+Array.prototype.rotate = function(angle) {
+	var myAngle = this.toAngle()
+	var mag = this.size()
+	
+	return vector.fromAngle(myAngle).mul(mag)
+}
+Array.prototype.lerp = function (target,frac) {
+	return this.map((v,i)=>v.lerp(target[i],frac))
+}
+Array.prototype.volume = function() {
+	var ret = 1;
+	this.forEach((v)=>{ret *= v});
+	return ret;
+}
+
+Array.prototype.containsVector = function(vector) {
+	return this.map((v)=>v.equals(vector)).sum() == 1
+}
 // @@@endArray
 String.prototype.random = Array.prototype.random
 String.prototype.firstUpper = function() {
@@ -1449,15 +1573,19 @@ String.prototype.firstUpper = function() {
 	return ret.join("")
 }
 
+String.prototype.escape = function () {
+	return JSON.stringify(this)
+}
 
 
-Object.defineProperty(Array.prototype,"x",{get:function(){return this[0]},set:function(val){this[0] = val;return value}})
+
+/*Object.defineProperty(Array.prototype,"x",{get:function(){return this[0]},set:function(val){this[0] = val;return value}})
 Object.defineProperty(Array.prototype,"y",{get:function(){return this[1]},set:function(val){this[1] = val;return value}})
 Object.defineProperty(Array.prototype,"z",{get:function(){return this[2]},set:function(val){this[2] = val;return value}})
 
 Object.defineProperty(Array.prototype,"r",{get:function(){return this[0]},set:function(val){this[0] = val;return value}})
 Object.defineProperty(Array.prototype,"g",{get:function(){return this[1]},set:function(val){this[1] = val;return value}})
-Object.defineProperty(Array.prototype,"b",{get:function(){return this[2]},set:function(val){this[2] = val;return value}})
+Object.defineProperty(Array.prototype,"b",{get:function(){return this[2]},set:function(val){this[2] = val;return value}})*/
 
 Number.prototype.notNaN = function() {
 	if (isNaN(this)) {
@@ -1477,12 +1605,16 @@ Number.prototype.clamp = function (min,max) {
 	if (ret > max) {ret = max}
 	return ret
 }
+Math.clamp = (num,...args)=>{return num.clamp(...args)}
 
 Number.prototype.overflow = function (min,max) {
 	var ret = this
 	if (ret < min) {ret = max}
 	if (ret > max) {ret = min}
 	return ret
+}
+Math.overflow = function(number,...args) {
+	return number.overflow(...args)
 }
 
 Number.prototype.segment = function (amount = 1) {
@@ -1518,6 +1650,10 @@ Number.prototype.dist = function(second) {
 	return (this - second).abs()
 }
 
+Number.prototype.lerp = function (target,frac) {
+	return this + (target - this) * frac
+}
+
 
 Math.__oldRandom__ = Math.random
 Math.random = function (max,floor) {
@@ -1540,6 +1676,14 @@ Math.map = function(ret,currMin,currMax,newMin,newMax) {
 	newMax -= newMin
 	ret *= newMax / currMax
 	return ret + newMin
+}
+
+Math.fraction = function(begin,end,point) {
+	return Math.map(point,begin,end,0,1)
+}
+
+Math.normalizeAngle = function(angle) {
+	return angle.overflow(0,Math.PI * 2).valueOf()
 }
 
 colors = {
@@ -1782,7 +1926,7 @@ shapes.world.pathfind = function(nodes,startNode,endNode) {
 
 repeat = function(times = 1,func) {
 	for (var i = 0;i < times;i++) {
-		if (func(i)) return
+		if (func(i,times)) return
 	}
 }
 if (!B.isNode) {
@@ -2037,4 +2181,30 @@ console.logBuffer = function() {
 	})
 	this.__buffer.length = 0
 	console.log(...print)
+}
+
+geometry = {
+	testLineIntersect: function(p0,p1,p2,p3) {		
+		var [p0_x,p0_y] = p0
+		var [p1_x,p1_y] = p1
+		var [p2_x,p2_y] = p2
+		var [p3_x,p3_y] = p3
+		
+		var s1_x, s1_y, s2_x, s2_y
+		var s,t
+
+		s1_x = p1_x - p0_x
+		s1_y = p1_y - p0_y
+		s2_x = p3_x - p2_x
+		s2_y = p3_y - p2_y
+		
+		s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y)
+		t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y)
+
+		if (s >= 0 && s <= 1 && t >= 0 && t <= 1)
+		{
+			return true
+		}
+		return false
+	}
 }

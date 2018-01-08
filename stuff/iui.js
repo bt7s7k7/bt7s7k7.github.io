@@ -8,7 +8,7 @@ B.module.require("canvas","stuff/canvas.js")
 B.module.init("iui",1,[["canvas",1.002],["prototypes",1.003]],()=>{
 	var window = {}
 	const layerNames = ["ground","window","alert","context"]
-	var docs = B.docs.create("ImmediateUI","Allows for creation of immediate UIs on canvases for applicational uses.")
+	var docs = B.docs.create("ImmediateUI","!! This module is deprecated !!\nAllows for creation of immediate UIs on canvases for applicational uses.")
 	docs.construct("ImmediateUI","ctx : CanvasUtil,slave : boolean = false","Creates ImmediateUI instance.")
 	docs.prop(".bgColor","Number[3]","Backround color to fill the canvas before drawing.")
 	docs.func(".update","","undefined","Triggers a redraw.")
@@ -422,3 +422,4 @@ B.module.init("iui",1,[["canvas",1.002],["prototypes",1.003]],()=>{
 	}
 	return window
 })
+

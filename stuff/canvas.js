@@ -349,7 +349,7 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 			}
 			canvas.font = height + "px " + font
 			canvas.textAlign = ["start","center","end"][center + 0]
-			txt.split("\n").forEach((v,i)=>{
+			txt.toString().split("\n").forEach((v,i)=>{
 				canvas.fillText(v,...(pos.add([0,i * (height * 1.1)])))
 			})
 			

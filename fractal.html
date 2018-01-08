@@ -23,7 +23,9 @@
 			var zoomAnimDowning = false
 			var zoomAnimDownID = 0
 			function setup() {
+				nodeLibaries.trig()
 				nodeLibaries.math()
+				nodeLibaries.logic()
 				refreshPanel()
 				ctx = new CanvasUtil(E.main.getContext("2d"))
 				ctx.setColor(colors.black).fill()
@@ -41,7 +43,7 @@
 						#RETURN = [glob.x * inp + ofX,glob.y * inp + ofY]
 					}
 				}`,["number","number","number","truth"],["number","number"]))
-				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants",[],["number","number","number","number"]))
+				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.consts",[],["number","number","number","number"]))
 				allNodes.push(editorNode("Image 1",`{
 					let x = #A || 0
 					let y = #B || 0
@@ -88,7 +90,7 @@
 				
 				setInterval(()=>{
 					try {
-						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
+						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),evalS:E.eval.value})
 						if (mouseOn) {
 							render(1)
 						}

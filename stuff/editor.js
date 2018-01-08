@@ -75,12 +75,47 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 					})
 					this.nodes.splice(mi,1)
 				}
+			})
+			var unselect = false
+			if (gui.testRect({pos:[0,0],size:[500,500]}).test.lClick && this.selected.node) {
+				unselect = true
+			}
+			this.nodes.forEach((v,mi)=>{
+				v.type.inputPorts.gui = gui
+				v.type.outputPorts.gui = gui
+				v.type.inputPorts.forEach((w,i,a)=>{
+					if (v.inputConn[i].node && v.inputConn[i].node.type) {
+						/*a.gui.iui.ctx.setColor(types[w]).zigzagLine(
+							getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add(portSize.mul(0.5)),
+							getPortPos(v.inputConn[i].portNum,v.inputConn[i].node.type.outputPorts.length,v.inputConn[i].node.pos.add(nodeSize.mul(-0.5)).add(this.offset),false).add(portSize.mul(0.5)),
+							3
+						)*/
+						let myPos = getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add(portSize.mul(0.5))
+						let theirPos = getPortPos(v.inputConn[i].portNum,v.inputConn[i].node.type.outputPorts.length,v.inputConn[i].node.pos.add(nodeSize.mul(-0.5)).add(this.offset),false).add(portSize.mul(0.5))
+						a.gui.iui.ctx.setColor(types[w]).shape([
+							myPos,
+							[myPos[0] - Math.clamp(20,0,(myPos[0] - theirPos[0]) / 2),myPos[1]],
+							[theirPos[0] + Math.clamp(20,0,(myPos[0] - theirPos[0]) / 2),theirPos[1]],
+							theirPos
+						],false,3)
+					}
+				})
+			})
+			this.nodes.forEach((v,mi)=>{
 				
 				v.type.inputPorts.gui = gui
 				v.type.outputPorts.gui = gui
 				v.type.inputPorts.forEach((w,i,a)=>{
 					if (this.selected.node == v && this.selected.portNum == i) {
-						a.gui.iui.ctx.setColor(colors.darkYellow.mul(Math.abs(Math.sin(Date.now() / 1000 * Math.PI)))).box(getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add([-2,-2]),portSize.add([4,4]))
+						let myPos = getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add(portSize.mul(0.5))
+						let theirPos = a.gui.iui.mouseData.pos
+						a.gui.iui.ctx.setColor(types[w]).box(theirPos.add(portSize.mul(-0.5)),portSize)
+						a.gui.iui.ctx.setColor(types[w]).shape([
+							myPos,
+							[myPos[0] - Math.clamp(20,0,(myPos[0] - theirPos[0]) / 2),myPos[1]],
+							[theirPos[0] + Math.clamp(20,0,(myPos[0] - theirPos[0]) / 2),theirPos[1]],
+							theirPos
+						],false,3)
 						
 					}
 					var event = a.gui.button({color:types[w],size:portSize,pos:getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true)})
@@ -91,18 +126,9 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 							this.selected.node = v
 							this.selected.portNum = i
 							this.selected.type = w
+							unselect = false
 							v.inputConn[i].node = null
 						}
-						
-					}
-					
-					if (v.inputConn[i].node && v.inputConn[i].node.type) {
-						a.gui.iui.ctx.setColor(types[w]).zigzagLine(
-							getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add(portSize.mul(0.5)),
-							getPortPos(v.inputConn[i].portNum,v.inputConn[i].node.type.outputPorts.length,v.inputConn[i].node.pos.add(nodeSize.mul(-0.5)).add(this.offset),false).add(portSize.mul(0.5)),
-							3
-						)
-						
 					}
 				})
 				v.type.outputPorts.forEach((w,i,a)=>{
@@ -117,6 +143,9 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 			})
 			if (gui.testRect({pos:[0,0],size:[500,500]}).test.mDown) {
 				this.offset = this.offset.add(gui.testRect({pos:[0,0],size:[500,500]}).test.drag)
+			}
+			if (unselect) {
+				this.selected.node = null
 			}
 		})
 		
@@ -269,8 +298,9 @@ colorMath
 			module.allNodes.push(module.editorNode("/","#RETURN = [(#A || 0) / (#B || 0)]",["number","number"],["number"],color))
 			module.allNodes.push(module.editorNode("%","#RETURN = [(#A || 0) % (#B || 0)]",["number","number"],["number"],color))
 			module.allNodes.push(module.editorNode("**","#RETURN = [(#A || 0) ** (#B || 0)]",["number","number"],["number"],color))
+			module.allNodes.push(module.editorNode("Sqrt","#RETURN = [Math.sqrt(#A || 0)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Buffer","#RETURN = [(#A || 0)]",["number"],["number"],color))
-			module.allNodes.push(module.editorNode("One Minus","#RETURN = [(#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("One Minus","#RETURN = [1-(#A || 0)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Random","#RETURN = [Math.random(#A || 1)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Abs","#RETURN = [Math.abs(#A)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Floor","#RETURN = [Math.floor(#A)]",["number"],["number"],color))
@@ -284,6 +314,27 @@ colorMath
 			module.allNodes.push(module.editorNode("100","#RETURN = [100]",[],["number"],color))
 			module.allNodes.push(module.editorNode("255","#RETURN = [255]",[],["number"],color))
 		},
+		trig: ()=>{
+			var color = colors.green.mul(0.5)
+			module.allNodes.push(module.editorNode("PI","#RETURN = [Math.PI * (#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Sin","#RETURN = [Math.sin(#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Cos","#RETURN = [Math.cos(#A || 0)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("Atan2","#RETURN = [Math.atan2((#A || 0),(#B || 0))]",["number","number"],["number"],color))
+		},
+		logic: ()=>{
+			var color = colors.orange.mul(0.5)
+			module.allNodes.push(module.editorNode("True","#RETURN = [true]",[],["truth"],color))
+			module.allNodes.push(module.editorNode("False","#RETURN = [false]",[],["truth"],color))
+			module.allNodes.push(module.editorNode("Is Zero","#RETURN = [#A == 0]",["number"],["truth"],color))
+			module.allNodes.push(module.editorNode("Is Positive","#RETURN = [#A > 0]",["number"],["truth"],color))
+			module.allNodes.push(module.editorNode("Is Negative","#RETURN = [#A < 0]",["number"],["truth"],color))
+			module.allNodes.push(module.editorNode("Is In Range","#RETURN = [Math.abs((#A || 0) - (#B || 0)) <= (#C || 0)]",["number","number","number"],["truth"],color))
+			module.allNodes.push(module.editorNode("Not","#RETURN = [!#A]",["truth"],["truth"],color))
+			module.allNodes.push(module.editorNode("And","#RETURN = [#A && #B]",["truth","truth"],["truth"],color))
+			module.allNodes.push(module.editorNode("Or","#RETURN = [#A || #B]",["truth","truth"],["truth"],color))
+			module.allNodes.push(module.editorNode("Xor","#RETURN = [#A != #B]",["truth","truth"],["truth"],color))
+			module.allNodes.push(module.editorNode("Ternary","#RETURN = [(#A) ? (#B || 0) : (#C || 0)]",["truth","number","number"],["number"],color))
+		}
 	}
 	return module
 })
