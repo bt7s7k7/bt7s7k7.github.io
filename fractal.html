@@ -43,11 +43,7 @@
 						#RETURN = [glob.x * inp + ofX,glob.y * inp + ofY]
 					}
 				}`,["number","number","number","truth"],["number","number"]))
-<<<<<<< HEAD
-				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.consts",[],["number","number","number","number"]))
-=======
 				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants || #GLOBAL.consts",[],["number","number","number","number"]))
->>>>>>> 3d1fb802e51ad48bd1508e2489d85245a3c6d6c3
 				allNodes.push(editorNode("Image 1",`{
 					let x = #A || 0
 					let y = #B || 0
@@ -94,11 +90,7 @@
 				
 				setInterval(()=>{
 					try {
-<<<<<<< HEAD
-						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),evalS:E.eval.value})
-=======
 						takes = B.timedCall(editor.compile(),{x:0,y:0,consts:Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
->>>>>>> 3d1fb802e51ad48bd1508e2489d85245a3c6d6c3
 						if (mouseOn) {
 							render(1)
 						}
