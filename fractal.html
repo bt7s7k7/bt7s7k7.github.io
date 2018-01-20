@@ -26,10 +26,11 @@
 				nodeLibaries.trig()
 				nodeLibaries.math()
 				nodeLibaries.logic()
+				nodeLibaries.vector()
 				refreshPanel()
 				ctx = new CanvasUtil(E.main.getContext("2d"))
 				ctx.setColor(colors.black).fill()
-				editor = new Editor(new ImmediateUI(new CanvasUtil(E.edit.getContext("2d"))),[400,250],["number","number","number"])
+				editor = new Editor(new ImmediateUI(new CanvasUtil(E.edit.getContext("2d"))),[400,250],["number","number","number","vector"])
 				editor.iui.bgColor = colors.notepad.mul(2)
 				allNodes.push(editorNode("X Y",`{
 					let inp = (#A || 1) * (#GLOBAL.zoom || 1)
@@ -42,26 +43,36 @@
 					} else {
 						#RETURN = [glob.x * inp + ofX,glob.y * inp + ofY]
 					}
-				}`,["number","number","number","truth"],["number","number"]))
-				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.constants || #GLOBAL.consts",[],["number","number","number","number"]))
+					#RETURN = [...#RETURN,#RETURN]
+				}`,["number","number","number","truth"],["number","number","vector"]))
+				allNodes.push(editorNode("Constants","#RETURN = #GLOBAL.consts",[],["number","number","number","number"]))
 				allNodes.push(editorNode("Image 1",`{
 					let x = #A || 0
 					let y = #B || 0
+					if (!#&A) x = #GLOBAL.x
+					if (!#&B) y = #GLOBAL.y
 					let glob = #GLOBAL
-					#RETURN = glob.pid.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
-				}`,["number","number"],["number","number","number"]))
+					#RETURN = glob.pid.getPixel([Math.floor((x) * 500),Math.floor((y) * 500)]).mul(1/255)
+					#RETURN = [...#RETURN,#RETURN]
+				}`,["number","number"],["number","number","number","vector"]))
 				allNodes.push(editorNode("Image 2",`{
-					let x = #A || 0
-					let y = #B || 0
+					let x = #A
+					let y = #B
+					if (!#&A) x = #GLOBAL.x
+					if (!#&B) y = #GLOBAL.y
 					let glob = #GLOBAL
-					#RETURN = glob.pid1.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
-				}`,["number","number"],["number","number","number"]))
+					#RETURN = glob.pid1.getPixel([Math.floor((x) * 500),Math.floor((y) * 500)]).mul(1/255)
+					#RETURN = [...#RETURN,#RETURN]
+				}`,["number","number"],["number","number","number","vector"]))
 				allNodes.push(editorNode("Image 3",`{
 					let x = #A || 0
 					let y = #B || 0
+					if (!#&A) x = #GLOBAL.x
+					if (!#&B) y = #GLOBAL.y
 					let glob = #GLOBAL
-					#RETURN = glob.pid2.getPixel([Math.floor((x || glob.x) * 500),Math.floor((y || glob.y) * 500)]).mul(1/255)
-				}`,["number","number"],["number","number","number"]))
+					#RETURN = glob.pid2.getPixel([Math.floor((x) * 500),Math.floor((y) * 500)]).mul(1/255)
+					#RETURN = [...#RETURN,#RETURN]
+				}`,["number","number"],["number","number","number","vector"]))
 				allNodes.push(editorNode("Eval",`{
 					let a = #A
 					let b = #B
@@ -90,7 +101,7 @@
 				
 				setInterval(()=>{
 					try {
-						takes = B.timedCall(editor.compile(),{x:0,y:0,consts:Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,evalS:E.eval.value})
+						takes = B.timedCall(editor.compile(),{x:0,y:0,pid:providedImageData1,pid1:providedImageData2,pid2:providedImageData3,offset,zoom,consts: Array.getFilled(4).map((_,i)=>{return parseFloat(E["inp" + (i+1)].value)}),evalS:E.eval.value})
 						if (mouseOn) {
 							render(1)
 						}
@@ -145,7 +156,13 @@
 								var base = base + (data.offset[i]) / 10
 								return base
 							})
- 							img.setPixel([x,y],func({x:ix,y:iy,consts: data.consts,pid:data.pid,pid1:data.pid1,pid2:data.pid2,evalS:data.eval}).mul(255))
+							var ret = func({x:ix,y:iy,consts: data.consts,pid:data.pid,pid1:data.pid1,pid2:data.pid2,evalS:data.eval})
+							if (ret[3] instanceof Array) {
+								ret = ret[3]
+							} else {
+								ret = [ret[0],ret[1],ret[2]]
+							}
+ 							img.setPixel([x,y],ret.mul(255))
 						})
 						status(x / size)
 					})
@@ -272,12 +289,13 @@
 					ctx.load(img)
 					self["providedImageData" + (number + 1)] = ctx.canvas.getImageData(0,0,500,500)
 				}
-				img.src = URL.createObjectURL(file)
+				if (file)
+					img.src = URL.createObjectURL(file)
 				
 			}
 			
 			function newN() {
-				E.ie.value = `{"arr":[{"type":"Out","pos":[400,250],"inputConn":[{"node":null,"portNum":0},{"node":null,"portNum":0},{"node":null,"portNum":0}]}],"consts":[1,1,1,1],"eval":""}`
+				E.ie.value = `{"arr":[{"type":"Out","pos":[400,250],"inputConn":[{"node":null,"portNum":0},{"node":null,"portNum":0},{"node":null,"portNum":0},{"node":null,"portNum":0}]}],"consts":[1,1,1,1],"eval":""}`
 			}
 			
 			function saveFile(callback = ()=>{}) {

@@ -873,6 +873,8 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 	var util = require("util")
 	var readline = require("readline")
 	var chalk = require("chalk")
+	var fs = require("fs")
+	var path = require("path")
 	B.chalk = chalk
 	process.on("exit",()=>{
 		B.write("\u001b[37m")
@@ -905,7 +907,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		onresize: ()=>{},
 		begin: function(callback,raw = B.io.raw) {
 			process.stdin.resume()
-			process.stdin.on("data",defDataFuntion)
+			if (process.stdin.listeners("data").indexOf(defDataFuntion) == -1) process.stdin.on("data",defDataFuntion)
 			this.ondata = callback || this.ondata
 			this.raw = raw
 		},
@@ -1110,7 +1112,8 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			}
 			
 			B.io.setCursor(pos)
-			B.write(B.chalk[borderColor](pipes[0][0] + pipes[0][1].repeat(size[0] - 2) + pipes[0][2]))
+			if (!(borderColor in chalk)) throw new Error ("Color '" + borderColor + "' not avalible")
+			else B.write(B.chalk[borderColor](pipes[0][0] + pipes[0][1].repeat(size[0] - 2) + pipes[0][2]))
 			
 			repeat(size[1] - 2,(i)=>{
 				var curr = text[i] || ""
@@ -1174,6 +1177,40 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			
 			return list
 		}
+	}
+	B.getFilesRecursive = function (dir,callback) {
+		async function readdir(dir,ret) {
+			var [err,files] = await fs.readdir.promise(dir)
+			if (err) throw err
+			for (let i = 0;i < files.length;i++) {
+				let path = require("path").join(dir,files[i])
+				let [err,stats] = await fs.stat.promise(path)
+				if (!err) {
+					if (stats.isDirectory()) {
+						await readdir(path,ret)
+					} else if (stats.isFile()) {
+						ret.push(path)
+					}
+				}
+			}
+		}
+		var files = []
+		readdir(dir,files).then(()=>{
+			callback(null,files)
+		}).catch((err)=>{
+			callback(err,[])
+		})
+	}
+	
+	B.clearFolder = function (dir,callback) {
+		async function main() {
+			var [err,files] = await fs.readdir.promise(dir)
+			if (err) throw err
+			for (var i = 0;i < files.length;i++) {
+				var [err] = await fs.unlink.promise(files[i])
+			}
+		}
+		main().then((v)=>callback(null,v)).catch((err)=>callback(err,null))
 	}
 }
 
@@ -1686,7 +1723,7 @@ Math.normalizeAngle = function(angle) {
 	return angle.overflow(0,Math.PI * 2).valueOf()
 }
 
-colors = {
+colors = { // @@@colors
 	red : [255,0,0],
 	darkRed : [127,0,0],
 	blue : [0,0,255],
@@ -1711,7 +1748,8 @@ colors = {
 	orange: [255,127,0],
 	softGreen: [0, 50, 50],
 	notepad: [11,22,29],
-	brown: [195,104,0]
+	brown: [195,104,0],
+	purple: [127,0,255]
 }
 
 vector = {

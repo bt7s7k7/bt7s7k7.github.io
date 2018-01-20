@@ -10,9 +10,7 @@ B.module.init("editor.js",0.1,[["iui",1]],()=>{
 	
 	const types = {
 		number: colors.white,
-		vector2: colors.aqua,
-		color: colors.green,
-		string: colors.red,
+		vector: colors.purple,
 		truth: colors.orange
 	}
 	var module = {}
@@ -84,6 +82,7 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 				v.type.inputPorts.gui = gui
 				v.type.outputPorts.gui = gui
 				v.type.inputPorts.forEach((w,i,a)=>{
+					if (!v.inputConn[i]) v.inputConn[i] = {node:null,portNum:0}
 					if (v.inputConn[i].node && v.inputConn[i].node.type) {
 						/*a.gui.iui.ctx.setColor(types[w]).zigzagLine(
 							getPortPos(i,a.length,v.pos.add(nodeSize.mul(-0.5)).add(this.offset),true).add(portSize.mul(0.5)),
@@ -221,15 +220,18 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 				var curr = all[toWrite.globalID]
 				if (curr.wasWrittiten) return;
 				var ids = []
+				var connected = []
 				toWrite.inputs.forEach((v,i)=> {
 					if (v) {
 						writer(v)
 						ids[i] = "VALUES["+ v.globalID +"][" + v.outputNum + "]"
+						connected[i] = "true"
 					} else {
 						ids[i] = "0"
+						connected[i] = "false"
 					}
 				})
-				code.push("// " + toWrite.type.name + " #" + toWrite.globalID)
+				code.push("// " + toWrite.type.name.replace(/\n/g," ") + " #" + toWrite.globalID)
 				code.push("VALUES[" + toWrite.globalID + "] = []")
 				var funcCode = toWrite.type.func.toString()
 				funcCode = funcCode.replace(/#RETURN/g,"VALUES[" + toWrite.globalID + "]")
@@ -237,6 +239,9 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 								   .replace(/#GLOBAL/g,"global")
 				ids.forEach((v,i)=> {
 					funcCode = funcCode.replace(new RegExp("#"+ (("ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i])||"A"),"g"),v)
+				})
+				connected.forEach((v,i)=> {
+					funcCode = funcCode.replace(new RegExp("#&"+ (("ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i])||"A"),"g"),v)
 				})
 				code.push(funcCode)
 				code.push("")
@@ -304,6 +309,7 @@ colorMath
 			module.allNodes.push(module.editorNode("Random","#RETURN = [Math.random(#A || 1)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Abs","#RETURN = [Math.abs(#A)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Floor","#RETURN = [Math.floor(#A)]",["number"],["number"],color))
+			module.allNodes.push(module.editorNode("-1","#RETURN = [-1]",[],["number"],color))
 			module.allNodes.push(module.editorNode("0","#RETURN = [0]",[],["number"],color))
 			module.allNodes.push(module.editorNode("0.1","#RETURN = [0.1]",[],["number"],color))
 			module.allNodes.push(module.editorNode("0.5","#RETURN = [0.5]",[],["number"],color))
@@ -334,6 +340,26 @@ colorMath
 			module.allNodes.push(module.editorNode("Or","#RETURN = [#A || #B]",["truth","truth"],["truth"],color))
 			module.allNodes.push(module.editorNode("Xor","#RETURN = [#A != #B]",["truth","truth"],["truth"],color))
 			module.allNodes.push(module.editorNode("Ternary","#RETURN = [(#A) ? (#B || 0) : (#C || 0)]",["truth","number","number"],["number"],color))
+		},
+		vector: ()=>{
+			var color = colors.purple.mul(0.5)
+			module.allNodes.push(module.editorNode("One","#RETURN = [1,1,1]",[],["vector"],color))
+			module.allNodes.push(module.editorNode("Construct\nVector","#RETURN = [[#A,#B,#C]]",["number","number","number"],["vector"],color))
+			module.allNodes.push(module.editorNode("Split\nVector",`
+			if (#A) {
+				#RETURN = [#A[0],#A[1],#A[2]]
+			} else {
+				#RETURN = [0,0,0]
+			}`,["vector"],["number","number","number"],color))
+			module.allNodes.push(module.editorNode("Distance","#RETURN = [(#A || [0,0,0]).dist(#B || [0,0,0])]",["vector","vector"],["number"],color))
+			module.allNodes.push(module.editorNode("Vector +","#RETURN = [(#A || [0,0,0]).add(#B || [0,0,0])]",["vector","vector"],["vector"],color))
+			module.allNodes.push(module.editorNode("Vector *","#RETURN = [(#A || [0,0,0]).mul(#B)]",["vector","number"],["vector"],color))
+			module.allNodes.push(module.editorNode("Lerp","#RETURN = [(#A || [0,0,0]).lerp((#B || [0,0,0]),#C)]",["vector","vector","number"],["vector"],color))
+			module.allNodes.push(module.editorNode("Normalize","#RETURN = [(#A || [0,0,0]).normalize()]",["vector"],["vector"],color))
+			module.allNodes.push(module.editorNode("To Angle","#RETURN = [(#A || [0,0,0]).toAngle()]",["vector"],["number"],color))
+			module.allNodes.push(module.editorNode("From Angle","#RETURN = [vectors.formAngle(#A)]",["number"],["vector"],color))
+			module.allNodes.push(module.editorNode("Magnitude","#RETURN = [(#A || [0,0,0]).size()]",["vector"],["number"],color))
+			
 		}
 	}
 	return module
