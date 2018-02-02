@@ -138,7 +138,7 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 						this.selected.node = null
 					}
 				})
-				gui.label({center:true,pos:v.pos.add(nodeSize.mul(-0.5)).add(this.offset),size:nodeSize,txt:v.type.name,color:colors.gray,textColor:colors.white,textHeight:nodeSize[1] / 4})
+				gui.label({center:true,pos:v.pos.add(nodeSize.mul(-0.5)).add(this.offset),size:nodeSize,txt:v.label || v.type.name,color:colors.gray,textColor:colors.white,textHeight:nodeSize[1] / 4})
 			})
 			if (gui.testRect({pos:[0,0],size:[500,500]}).test.mDown) {
 				this.offset = this.offset.add(gui.testRect({pos:[0,0],size:[500,500]}).test.drag)
@@ -146,18 +146,37 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 			if (unselect) {
 				this.selected.node = null
 			}
+			if (gui.testRect({ pos: [0, 0], size: [500, 500] }).test.rClick && this.selected.node && this.selected.node.type.inputPorts[this.selected.portNum] == "number") {
+				setTimeout(() => {
+						let num = parseFloat(prompt("Enter constant number", "0"))
+						if (!isNaN(num)) {
+							let newNode = {
+								label: num.toString(),
+								type: module.allNodes.filter(v => v.name == "_const")[0],
+								pos: gui.iui.mouseData.pos.clone(),
+								inputConn: [],
+								customData: num
+							}
+							this.nodes.push(newNode)
+							this.selected.node.inputConn[this.selected.portNum].node = newNode
+							this.selected.node.inputConn[this.selected.portNum].portNum = 0
+							this.selected.node = null
+						}
+				},100)
+			}
 		})
 		
 		iui.layers.context.push((gui)=>{
-			if (gui.testRect({pos:[0,0],size:[500,500]}).test.rClick) {
+			if (gui.testRect({pos:[0,0],size:[500,500]}).test.rClick && !this.selected.node) {
 				this.contextOpen = !this.contextOpen
 				this.contextPos = gui.iui.mouseData.pos.clone()
 			}
 			if (this.contextOpen) {
 				var menu = gui.rect({pos:this.contextPos,size:[0,0]})
 				var spawned = false
-				repeat(contextLimit,(i)=>{
-					var curr = module.allNodes[(i + this.scrollOffset) % module.allNodes.length]
+				var indexOffset = 0
+				repeat(Math.min(contextLimit,module.allNodes.filter(v=>v.name[0] != "_").length),(i)=>{
+					var curr = module.allNodes.filter(v=>v.name[0] != "_")[(i + this.scrollOffset + indexOffset) % module.allNodes.filter(v=>v.name[0] != "_").length]
 					if (menu.button({color:curr.color,pos:[100 * Math.floor(i / contextLimit),15 * (i % contextLimit)],size:[100,15],txt:curr.name.replace(/\n/g," "),textHeight:10}).test.lClick && !spawned) {
 						this.addNode(curr,this.contextPos.add(this.offset.mul(-1)))
 						spawned = true
@@ -201,7 +220,10 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 			
 			var parser = function (toMap,outputNum) {
 				parsingID++;
-				var curr = {node: toMap,id: parsingID,inputs: [],outputNum,type: toMap.type,globalID:editor.nodes.indexOf(toMap)}
+				var curr = { node: toMap, id: parsingID, inputs: [], outputNum, type: toMap.type, globalID: editor.nodes.indexOf(toMap) }
+				if ("customData" in toMap) {
+					curr.customData = JSON.stringify(toMap.customData)
+				}
 				all[curr.globalID] = {node:curr.node,wasWrittiten:false,globalID:curr.globalID}
 				if (parsingID == 0) {
 					origin = curr
@@ -231,12 +253,16 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 						connected[i] = "false"
 					}
 				})
-				code.push("// " + toWrite.type.name.replace(/\n/g," ") + " #" + toWrite.globalID)
+				code.push("// " + toWrite.type.name.replace(/\n/g, " ") + " #" + toWrite.globalID)
+
 				code.push("VALUES[" + toWrite.globalID + "] = []")
 				var funcCode = toWrite.type.func.toString()
 				funcCode = funcCode.replace(/#RETURN/g,"VALUES[" + toWrite.globalID + "]")
 				                   .replace(/#INPUTS/g,"["+ ids.join(",") +"]")
 								   .replace(/#GLOBAL/g,"global")
+				if ("customData" in toWrite) {
+					funcCode = funcCode.replace(/#CUSTOM_DATA/g,toWrite.customData)
+				}
 				ids.forEach((v,i)=> {
 					funcCode = funcCode.replace(new RegExp("#"+ (("ABCDEFGHIJKLMNOPQRSTUVWXYZ"[i])||"A"),"g"),v)
 				})
@@ -285,7 +311,15 @@ Here is an example of an addition --EditorNode--.
 		}
 	}
 	docs.endObject()
-	module.allNodes = []
+	module.allNodes = [
+		{
+			name: "_const",
+			func: "#RETURN = [#CUSTOM_DATA]",
+			inputPorts: [],
+			outputPorts: ["number"],
+			color: colors.black
+		}
+	]
 	
 	docs.prop("nodeLibaries","Object",
 `In this --Object-- there are premade libaries of nodes. It's just a bunch of --functions--. When they are executed they
@@ -308,17 +342,7 @@ colorMath
 			module.allNodes.push(module.editorNode("One Minus","#RETURN = [1-(#A || 0)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Random","#RETURN = [Math.random(#A || 1)]",["number"],["number"],color))
 			module.allNodes.push(module.editorNode("Abs","#RETURN = [Math.abs(#A)]",["number"],["number"],color))
-			module.allNodes.push(module.editorNode("Floor","#RETURN = [Math.floor(#A)]",["number"],["number"],color))
-			module.allNodes.push(module.editorNode("-1","#RETURN = [-1]",[],["number"],color))
-			module.allNodes.push(module.editorNode("0","#RETURN = [0]",[],["number"],color))
-			module.allNodes.push(module.editorNode("0.1","#RETURN = [0.1]",[],["number"],color))
-			module.allNodes.push(module.editorNode("0.5","#RETURN = [0.5]",[],["number"],color))
-			module.allNodes.push(module.editorNode("1","#RETURN = [1]",[],["number"],color))
-			module.allNodes.push(module.editorNode("2","#RETURN = [2]",[],["number"],color))
-			module.allNodes.push(module.editorNode("5","#RETURN = [5]",[],["number"],color))
-			module.allNodes.push(module.editorNode("10","#RETURN = [10]",[],["number"],color))
-			module.allNodes.push(module.editorNode("100","#RETURN = [100]",[],["number"],color))
-			module.allNodes.push(module.editorNode("255","#RETURN = [255]",[],["number"],color))
+			module.allNodes.push(module.editorNode("Floor", "#RETURN = [Math.floor(#A)]", ["number"], ["number"], color))
 		},
 		trig: ()=>{
 			var color = colors.green.mul(0.5)
