@@ -1,102 +1,159 @@
 ﻿<html>
-	<head>
-		<script src="stuff/bUtils.js"></script>
-		<script src="stuff/canvas.js"></script>
-		<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
-		<script>
-			var ctx
-			var gallImgs = [
-				"1.png",
-				"2.png",
-				"3.png",
-				"4.jpg",
-				"5.png",
-				"6.png",
-				"7.png",
-				"8.png",
-				"9.bmp",
-				"10.png",
-				"11.jpg"
-			]
-			
-			var gallID = 0
-			function setup() {
-				B.sinc(E.note)
-				E.jsW.hidden = true;
-				setInterval(()=>{
-					var time = new Date()
-					E.time.innerText = time.getFullYear() + " " + (time.getMonth() + 1) + "." + (time.getDate()) + ". " + time.getHours() + ":" + time.getMinutes() + ":" + time.getSeconds() + ":" +  time.getMilliseconds()
-				},17)
-				ctx = new CanvasUtil(B.canvas)
-				setInterval(()=>{
-					if (B.get.lowB) {return}
-					gallID++
-					if (gallID > gallImgs.length - 1) {
-						gallID = 0;
+<head>
+	<script src="stuff/bUtils.js"></script>
+	<script src="stuff/canvas.js"></script>
+	<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+	<script>
+		var galleryList = [
+			"1.png",
+			"2.png",
+			"3.png",
+			"4.jpg",
+			"5.png",
+			"6.png",
+			"7.png",
+			"8.png",
+			"9.bmp",
+			"10.png",
+			"11.jpg",
+			"12.png"
+		]
+
+		var galleryImgs = []
+
+		var galleryID = 0;
+		var galleryTime = 2000
+		var lastGalleryTime = 0
+		var gallUpdatesPossible = false
+		var gallAnimTime = 100
+
+		function setup() {
+			lastGalleryTime = Date.now()
+			var done = 0
+			galleryList.forEach((v, i) => {
+				galleryImgs[i] = document.createElement("img")
+				galleryImgs[i].src = "gallery/" + v
+				galleryImgs[i].addEventListener("load", () => {
+					done++
+					if (done >= galleryList.length) {
+						gallUpdatesPossible = true;
+						lastGalleryTime = Date.now()
 					}
-					var img = new Image()
-					img.onload = ()=>{
-						var wid = (img.width / img.height) * 500
-						ctx.setSize([wid,500])
-						ctx.load("gallery/" + gallImgs[gallID],[0,0],[wid,500])
-					}
-					img.src = "gallery/" + gallImgs[gallID]
-					
-				},5000)
-				if (!B.lowB) {ctx.load("gallery/" + gallImgs[0],[0,0],[500,500])}
-				
+				})
+			})
+		}
+
+		function update() {
+			if (gallUpdatesPossible) {
+				var timeDelta = Date.now() - lastGalleryTime
+				if (E.gallery.src != galleryImgs[galleryID].src) {
+					E.gallery.src = galleryImgs[galleryID].src
+				}
+				var frac = 1
+				var currImg = galleryImgs[galleryID]
+
+				if (timeDelta < gallAnimTime) {
+					frac = timeDelta / gallAnimTime
+				} else if (timeDelta > galleryTime - gallAnimTime) {
+					frac = 1 - (timeDelta - (galleryTime - gallAnimTime)) / gallAnimTime
+				}
+
+				E.gallery.setSize([((window.getSize()[1] - 100) * 0.75) * (currImg.naturalWidth / currImg.naturalHeight) * frac, ((window.getSize()[1] - 100) * 0.75)])
+
+				if (timeDelta > galleryTime) {
+					galleryID = Math.overflow(galleryID + 1, 0, galleryImgs.length - 1)
+					lastGalleryTime = Date.now()
+				}
 			}
-		</script>
-		<style>
-			a {
-				color:yellow;text-decoration:none
-			}
-		</style>
-	</head>
-	<body style="background-color:black">
-		<script>
-			if (B.get.redirect != undefined) {
-				location.replace(decodeURIComponent(B.get.redirect))
-			}
-		</script>
-		<img src="stuff/colors.png" style="height:375px;position:absolute;top:0px;left:0px" class="fillW" hidden />
-		<img src="stuff/logo.png" style="position:absolute;height:200px;width:200px;top:100px;left:275px" />
-		<h1 style="position:absolute;color:white;top:220px;left:485px" id="time">
-			<span id="jsW" style="color:red">ERROR ERROR ERROR</span>
-		</h1>
-		<h1 style="color:black;position:absolute;top:75px;left:485px;font-size:100px;color:yellow" >
-			bt7s7k7
-		</h1>
-		<section id="text" style="color:white;position:relative;top:375">
-			<h1>Links / Odkazy</h1>
-			<h3>
-				<a href="https://www.youtube.com/channel/UC6L4aSMM7i36iaLEsK3NThQ" style="color:yellow;text-decoration:none">Youtube</a><br />
-				<a href="https://github.com/bt7s7k7" style="color:yellow;text-decoration:none">GitHub</a><br />
-				<a href="index.html" style="color:yellow;text-decoration:none">Main Page / Hlavná Stránka</a><br />
-				<a href="zbierka.html" style="color:yellow;text-decoration:none">Zbierka</a><br />
-			</h3>
-			<h1>Online Projects / Online Projekty</h1>
-			<h3>
-				<a href="platform.html" style="color:yellow;text-decoration:none">Platform</a><br />
-				<a href="cpu.html" style="color:yellow;text-decoration:none">CPU Simulator</a><br />
-				<a href="animation.html" style="color:yellow;text-decoration:none">Animator</a><br />
-				<a href="fractal.html" style="color:yellow;text-decoration:none">Fractal</a><br />
-				<a href="maze.html" style="color:yellow;text-decoration:none">Maze</a><br />
-				<a href="3dMaze.html" style="color:yellow;text-decoration:none">3D Maze</a><br />
-				<a href="noise.html">Noise</a><br />
-			</h3>
-			<h1>Downloads / Súbori na stiahnutie</h1>
-			<h3>
-				<a href="https://github.com/bt7s7k7/BinaryR/blob/master/Rockets.apk?raw=true" style="color:yellow;text-decoration:none">
-				Rockets.apk</a><br />
-				<a href="https://github.com/bt7s7k7/BinaryR/blob/master/Windows%20%20Image%20Host.exe?raw=true" 
-				style="color:yellow;text-decoration:none">Windows Image Host.exe</a><br />
-			</h3>
-			<h1>Galery / Galéria</h1>
-			<canvas class="pixelate" height="500" width="500" style="border:1px solid yellow"><h1 style="color:red">HTML5 Needed</h1></canvas>
-			<h1>A place for notes / Miesto na poznamky</h1>
-			<textarea class="console fillW" id="note" style="height:500px;border:2px yellow solid"></textarea>
-			
-		</section>
-	</body>
+		}
+
+		function gallNext() {
+			lastGalleryTime = galleryTime - gallAnimTime
+		}
+	</script>
+
+</head>
+<body>
+	<div style="position:absolute;top:0px;left:0px;background-color:#0d0d0d;width:100%;height:100px">
+		<img src="stuff/logo.png" style="position:absolute;top:5px;left:5px;height:90px;width:90px" />
+		<span style="color:yellow;font-family:Arial;font-size:50px;position:absolute;top:25px;left:110px">bt7s7k7 / Bt SK / Branislav Trstenský</span>
+	</div>
+	<div style="position:absolute;top:100px;left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;text-align:center">
+		<img id="gallery" style="position:relative;top:50%;transform:translateY(-50%)" onclick="gallNext()" />
+	</div>
+	<div style="position:absolute;top:100%;left:0px;background-color:#0d0d0d;width:calc(100% - 30px);height:90px;padding: 25px 5px 5px 25px">
+		<span style="text-align:left;color:yellow;font-size:50px">Stránky</span>
+		<div style="position:absolute;top:0px;left:calc(100%);text-wrap:none;transform:translateX(-100%);width:calc(90px + 50px + 90px)">
+			<a href="https://github.com/bt7s7k7"><img src="stuff/github.png" style="height:90px;width:90px" /></a>
+			<div style="width:25px;height:25px;display:inline-block"> </div>
+			<a href="https://www.youtube.com/channel/UC6L4aSMM7i36iaLEsK3NThQ"><img src="https://lh3.googleusercontent.com/4TR7dlSEhUdySTcbWWmSdTqgeoBkMntBcDw1LWqKlI9wSZOk1rqjcgFE6w1hyzFDbQM=w300" style="height:90px;width:90px" /></a>
+		</div>
+	</div>
+	<!--<div style="position:absolute;top:calc(100px + 100%);left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;">
+		<ul style="color:yellow;text-decoration:none;font-weight:700;font-size:24px">
+			<li><a href="platform.html" style="color:inherit;text-decoration:inherit">Platform</a></li>
+			<li><a href="cpu.html" style="color:inherit;text-decoration:inherit">CPU Simulator</a></li>
+			<li><a href="animation.html" style="color:inherit;text-decoration:inherit">Animator</a></li>
+			<li><a href="fractal.html" style="color:inherit;text-decoration:inherit">Fractal</a></li>
+			<li><a href="3dMaze.html" style="color:inherit;text-decoration:inherit">Bludisko</a></li>
+		</ul>
+	</div>-->
+	<div style="position:absolute;top:calc(100px + 100%);left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;display:grid;grid-template-columns:repeat(3,calc(100% / 3));grid-template-rows:repeat(2,calc(50%));overflow:no-display">
+		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
+			<a style="color:inherit;text-decoration:inherit" href="platform.html">
+				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
+					<img style="width: 100%;height:auto;image-rendering:pixelated" src="otherImages/platform.png" />
+				</div>
+				<div style="width:100%;padding-top:10px;">
+					Platform
+				</div>
+			</a>
+		</div>
+
+		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
+			<a style="color:inherit;text-decoration:inherit" href="cpu.html">
+				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
+					<img style="width: 100%;height:auto" src="otherImages/cpuSim.bmp" />
+				</div>
+				<div style="width:100%;padding-top:10px;">
+					CPU Simulátor
+				</div>
+			</a>
+		</div>
+
+		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
+			<a style="color:inherit;text-decoration:inherit" href="fractal.html">
+				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
+					<img style="width: 100%;height:auto" src="otherImages/avandgard.png" />
+				</div>
+				<div style="width:100%;padding-top:10px;">
+					Fractal
+				</div>
+			</a>
+		</div>
+
+		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
+			<a style="color:inherit;text-decoration:inherit" href="animation.html">
+				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
+					<img style="width: 100%;height:auto" src="otherImages/anim.bmp" />
+				</div>
+				<div style="width:100%;padding-top:10px;">
+					Animátor
+				</div>
+			</a>
+		</div>
+
+		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
+			<a style="color:inherit;text-decoration:inherit" href="3dMaze.html">
+				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
+					<img style="width: 100%;height:auto;position:relative;bottom:100px" src="otherImages/maze.png" />
+				</div>
+				<div style="width:100%;padding-top:10px;">
+					Bludisko
+				</div>
+			</a>
+		</div>
+
+	</div>
+</body>
 </html>

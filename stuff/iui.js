@@ -276,7 +276,7 @@ B.module.init("iui",1,[["canvas",1.002],["prototypes",1.003]],()=>{
 		"--IUIMouseEvent--.test.click \n" +
 		"--IUIMouseEvent--.test.down \n" +
 		"--IUIMouseEvent--.test.over \n" +
-		"--IUIMouseEvent--.test.drag --//An exeption. This is an Number[2]--\n"
+		"--IUIMouseEvent--.test.drag --//An exeption. This is a Number[2]--\n"
 	)
 
 	window.IUIMouseEvent = function IUIMouseEvent(mouseData,rect) {

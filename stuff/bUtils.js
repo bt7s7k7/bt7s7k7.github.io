@@ -48,40 +48,45 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		}
 	} else {
 		B.keys = {}
+		B.keysPress = {}
 		B.pathTo = document.currentScript.src.split("/").slice(0,-1).join("/")
 		B.src = document.currentScript.src
 		B.worker = {
-			reference: new Worker(B.src),
-			execute: function (func,data = {}) {
-				var uid = this.exeQueue.length
-				this.reference.postMessage({type:"exe",func:func.toString(),data:data,uid:uid})
-				var prom = new Promise((resolve,reject)=>{
-					this.exeQueue[uid] = resolve
-				})
-				this.exeQueue[uid].prom = prom
-				return prom
-			},
-			exeQueue : []	
-		}
-		B.worker.reference.postMessage({type:"init",url:location.href.split("/").slice(0,-1).join("/")})
-		B.worker.reference.onmessage = (msg)=>{
-			var data = msg.data
-			var messages = {
-				"return": ()=>{
-					if (B.worker.exeQueue[data.uid]) {
-						var extract = B.worker.exeQueue.splice(data.uid,1)[0](data.data || {})
+			begin: function() {
+				B.worker = {
+					reference: new Worker(B.src),
+					execute: function (func,data = {}) {
+						var uid = this.exeQueue.length
+						this.reference.postMessage({type:"exe",func:func.toString(),data:data,uid:uid})
+						var prom = new Promise((resolve,reject)=>{
+							this.exeQueue[uid] = resolve
+						})
+						this.exeQueue[uid].prom = prom
+						return prom
+					},
+					exeQueue : []	
+				}
+				B.worker.reference.postMessage({type:"init",url:location.href.split("/").slice(0,-1).join("/")})
+				B.worker.reference.onmessage = (msg)=>{
+					var data = msg.data
+					var messages = {
+						"return": ()=>{
+							if (B.worker.exeQueue[data.uid]) {
+								var extract = B.worker.exeQueue.splice(data.uid,1)[0](data.data || {})
+							}
+						},
+						"status": ()=>{
+							if (B.worker.exeQueue[data.uid]) {
+								B.worker.exeQueue[data.uid].prom.status = data.status
+							}
+						}
 					}
-				},
-				"status": ()=>{
-					if (B.worker.exeQueue[data.uid]) {
-						B.worker.exeQueue[data.uid].prom.status = data.status
+					if (messages[data.type]) {
+						messages[data.type]()
+					} else {
+						throw new Error("[Internal bUtils error] 'unknown_async_host_msg_type_"+ data.type +"'\nPlease contact the devs.")
 					}
 				}
-			}
-			if (messages[data.type]) {
-				messages[data.type]()
-			} else {
-				throw new Error("[Internal bUtils error] 'unknown_async_host_msg_type_"+ data.type +"'\nPlease contact the devs.")
 			}
 		}
 		
@@ -133,6 +138,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			}
 			document.body.addEventListener("keydown",event=>{
 				B.keys[event.key] = true
+				B.keysPress[event.key] = true
 			})
 			document.body.addEventListener("keyup",event=>{
 				B.keys[event.key] = false
@@ -195,7 +201,9 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 					throw err
 				}
 				
-				
+				B.keysPress.forEach((v,i,a)=>{
+					a[i] = false
+				})
 				
 				return B.renderTime
 			}
@@ -671,6 +679,17 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		})
 	}
 	
+	B.colorSelect = function () {
+		return new Promise((resolve,reject)=>{
+			var input = document.createElement("input")
+			input.type = "color"
+			input.onchange = function(event) {
+				resolve(colors.fromHex(input.value))
+			}
+			input.click()
+		})
+	}
+	
 	B.createForm = function(element,fields,submitText = "OK") {
 		/* @@@createForm
 			[
@@ -751,7 +770,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				},
 				"number",()=>{
 					var input = document.createElement("input")
-					input.value = v.value
+					input.value = v.value.toString()
 					input.type = (v.range) ? "range" : "number"
 										
 					input.onchange = function () {
@@ -862,6 +881,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			if (repeat) B.formify(element,object,buttonText,repeat,callback)
 		})
 	}
+	
 } else {
 	// @@@node
 	B.isNode = true
@@ -1179,6 +1199,9 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		}
 	}
 	B.getFilesRecursive = function (dir,callback) {
+		if (!callback)
+			return this.getFilesRecursive.promise(dir)
+		
 		async function readdir(dir,ret) {
 			var [err,files] = await fs.readdir.promise(dir)
 			if (err) throw err
@@ -1203,14 +1226,138 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 	}
 	
 	B.clearFolder = function (dir,callback) {
+		if (!callback)
+			return this.clearFolder.promise(dir)
 		async function main() {
 			var [err,files] = await fs.readdir.promise(dir)
 			if (err) throw err
 			for (var i = 0;i < files.length;i++) {
-				var [err] = await fs.unlink.promise(files[i])
+				var [err] = await fs.unlink.promise(path.join(dir,files[i]))
 			}
 		}
 		main().then((v)=>callback(null,v)).catch((err)=>callback(err,null))
+	}
+
+	B.loadCfgFile = function (path, defObj = {}, callback = null) {
+		if (!callback) return this.loadCfgFile.promise(path, defObj)
+
+		/*
+			defObject format
+				valueName: string type | segmentName: object content (using defObject format)
+		*/
+
+		fs.readFile(path, (err, data) => {
+			if (err) return callback(err, null)
+
+			var ret = {}
+			var lines = data.toString().split("\n")
+			var currSection = null
+			try {
+				lines.forEach((v, line) => {
+					v = v + "\n"
+					var state = "begin"
+					var name = ""
+					var value = ""
+					v.forEach((char) => {
+						choice(state,
+							"begin", () => {
+								if (!(/\s|\n/.test(char))) {
+									if (char == "[") {
+										
+										state = "sectionName"
+									} else if (char == "#" || char == ";") {
+										state = "comment"
+									} else {
+										name += char
+										state = "valueName"
+									}
+								}
+							},
+							"valueName", () => {
+								if (char != ":" && char != "=") {
+									name += char
+								} else {
+									if (/\n/.test(char)) {
+										throw new Error("Missing value assingment in confing at line " + line)
+									}
+									state = "value"
+								}
+							},
+							"value", () => {
+								if (!(/\n/.test(char))) {
+									value += char
+								} else {
+									let assingTo = (currSection) ? ret[currSection] : ret;
+									let defObjLocation = (currSection) ? defObj[currSection] : defObj;
+									let parsedValue = null
+
+									if (!(name in defObjLocation)) throw new Error("Invalid value '"+ name +"' in config at line " + line)
+
+									try {
+										parsedValue = JSON.parse(value)
+									} catch (err) {
+										throw new Error("Value parsing syntax error in config at line " + line + ", " + err.name.toLowerCase().replace(/in json/,""))
+									}
+
+									if (typeof (parsedValue) != defObjLocation[name]) {
+										throw new Error("Wrong value type in config at line " + line + ", is " + typeof (parsedValue) + " instead of " + defObjLocation[name])
+									}
+
+									assingTo[name] = parsedValue
+
+									state = "begin"
+								}
+							},
+							"sectionName", () => {
+								if (char != "]") {
+									name += char
+								} else {
+									if (/\n/.test(char)) {
+										throw new Error("Unfinished section declaration in config at line " + line)
+									}
+									state = "begin"
+									if (name in defObj && typeof (defObj[name]) == "object") {
+										if (name in ret) throw new Error("Duplicate section '"+ name +"' declaration in config at line " + line)
+										currSection = name
+										ret[currSection] = {}
+									}
+									else throw new Error("Invalid section name '"+ name +"' in config at line " + line)
+								}
+							}
+						)
+					})
+				})
+
+				defObj.forEach((value, rootName) => {
+					if (typeof (value) == "string") {
+						if (rootName in ret) {
+
+						} else {
+							throw new Error("Missing value '" + rootName + "' of type "+ value +" in config")
+						}
+					} else if (typeof (value) == "object") {
+						if (!(rootName in ret)) {
+							throw new Error("Missing segment '" + rootName + "in config")
+						}
+						value.forEach((value, sectionName) => {
+							if (typeof (value) == "string") {
+								if (sectionName in ret[rootName]) { } else {
+									throw new Error("Missing value '" + sectionName + "' in section " + rootName + " of type "+ value +" in config")
+								}
+							} else throw new Error("Value '" + sectionName + "' in section " + rootName + " in defObj has an invalid type, can be only string")
+						})
+					} else throw new Error("Value '" + rootName + "' in defObj has an invalid type, can be only object or string")
+
+				})
+
+			} catch (err) {
+				callback(err, null)
+				return;
+			}
+
+			callback(null,ret)
+		})
+
 	}
 }
 
@@ -1237,6 +1384,22 @@ B.parseOptions = function (object,defaults = {},required = []) {
 	}
 	
 	return object
+}
+
+B.escapeHTML = function (unsafe) {
+	return unsafe.replace(/[&<>'"]/g, (v) => { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;', "\n":"<br />", "\r":"" }[v] })
+}
+
+B.createWatcher = function(test,callback,multiple = false,interval = 10) {
+	var func = function () {
+		if (test()) {
+			callback()
+			if (!multiple) return
+		}
+		setTimeout(func,interval)
+	}
+	
+	func()
 }
 //@@@stretch
 B.spreadFunction = function(step,done,persist = {},stepTime = 17,updateFunc = ()=>{}) {
@@ -1365,14 +1528,17 @@ Array.prototype.dot = function (second) {
 }
 
 Array.prototype.cross = function (second) {
-	if (this.length != 3) {throw "This is an 3D operation"}
-	var ret = []
-	var a = this
-	var b = second
-	ret.push(a[1] * b[2] - a[2] * b[1])
-	ret.push(a[2] * b[0] - a[0] * b[2])
-	ret.push(a[0] * b[1] - a[1] * b[0])
-	return ret
+	if (this.length == 3) {
+		var ret = []
+		var a = this
+		var b = second
+		ret.push(a[1] * b[2] - a[2] * b[1])
+		ret.push(a[2] * b[0] - a[0] * b[2])
+		ret.push(a[0] * b[1] - a[1] * b[0])
+		return ret
+	} else if (this.length == 2) {
+		return this[0]*second[1] - this[1]*second[0]
+	}
 }
 
 Array.prototype.copyTo = function(target) {
@@ -1740,6 +1906,9 @@ colors = { // @@@colors
 		var hexs = hex.substr(1).split("")
 		return [parseInt(hexs[0] + hexs[1],16),parseInt(hexs[2] + hexs[3],16),parseInt(hexs[4] + hexs[5],16)]
 	},
+	random: function () {
+		return Array.getFilled(3,()=>Math.random(255,true))
+	},
 	gray: [127,127,127],
 	grey: [127,127,127],
 	darkGrey: [63,63,63],
@@ -1999,6 +2168,10 @@ if (!B.isNode) {
 		return this
 	}
 	
+	ImageData.prototype.getSize = function() {
+		return [this.width,this.height]
+	}
+	
 	File.prototype.toString = function() {
 		return new Promise((resolve)=>{
 			var reader = new FileReader()
@@ -2065,6 +2238,14 @@ Object.prototype.toArray = function () {
 
 Object.prototype.transform = function (func) {
 	return func(this)
+}
+
+Object.prototype.filter = function (callback) {
+	ret = {}
+	this.forEach((v,i)=>{
+		if (callback(v,i,this)) ret[i] = v
+	})
+	return ret
 }
 
 if (B.isWorker) {
@@ -2244,5 +2425,69 @@ geometry = {
 			return true
 		}
 		return false
+	},
+	getLineIntersect: function (a1, a2, b1, b2) {
+		var ret = [a1.cross(a2), b1.cross(b2)]
+		var det = [a1[0] - a2[0], a1[1] - a2[1]].cross([b1[0] - b2[0], b1[1] - b2[1]])
+		ret = [[ret[0], a1[0] - a2[0]].cross([ret[1], b1[0] - b2[0]]) / det, [ret[0], a1[1] - a2[1]].cross([ret[1], b1[1] - b2[1]]) / det]
+		return ret
+	},
+	getCircleIntersect: function (p0, r0, p1, r1) {
+		var x0 = p0[0]
+		var y0 = p0[1]
+		var x1 = p1[0]
+		var y1 = p1[1]
+		var a, dx, dy, d, h, rx, ry;
+		var x2, y2;
+
+        /* dx and dy are the vertical and horizontal distances between
+         * the circle centers.
+         */
+		dx = x1 - x0;
+		dy = y1 - y0;
+
+		/* Determine the straight-line distance between the centers. */
+		d = Math.sqrt((dy * dy) + (dx * dx));
+
+		/* Check for solvability. */
+		if (d > (r0 + r1)) {
+			/* no solution. circles do not intersect. */
+			return [];
+		}
+		if (d < Math.abs(r0 - r1)) {
+			/* no solution. one circle is contained in the other */
+			return [];
+		}
+
+        /* 'point 2' is the point where the line through the circle
+         * intersection points crosses the line between the circle
+         * centers.  
+         */
+
+		/* Determine the distance from point 0 to point 2. */
+		a = ((r0 * r0) - (r1 * r1) + (d * d)) / (2.0 * d);
+
+		/* Determine the coordinates of point 2. */
+		x2 = x0 + (dx * a / d);
+		y2 = y0 + (dy * a / d);
+
+        /* Determine the distance from point 2 to either of the
+         * intersection points.
+         */
+		h = Math.sqrt((r0 * r0) - (a * a));
+
+        /* Now determine the offsets of the intersection points from
+         * point 2.
+         */
+		rx = -dy * (h / d);
+		ry = dx * (h / d);
+
+		/* Determine the absolute intersection points. */
+		var xi = x2 + rx;
+		var xi_prime = x2 - rx;
+		var yi = y2 + ry;
+		var yi_prime = y2 - ry;
+
+		return [[xi, yi], [xi_prime, yi_prime]];
 	}
 }

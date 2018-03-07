@@ -113,6 +113,20 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 			this.canvas.fill()
 			return this
 		}
+		// @method #:strokeEllipse
+		// @param pos Vector2 The position of the ellipse
+		// @param size Vector2 The size of the ellipse
+		// @param range Vector2 Two 2D radial spherical coordinates.
+		// @return CanvasUtil this
+		// @desc Draw a ellipse with the desired size and position. The spherical coordinates mark from to where to draw the arc of the of the ellipse.
+		this.strokeEllipse = function(pos,size,width = 1,rot = [0,Math.PI * 2]) {
+			pos = pos.add(this.globalOffset)
+			this.canvas.lineWidth = width;
+			this.canvas.beginPath()
+			this.canvas.ellipse(pos[0],pos[1],size[0],size[1],rot[0],0,rot[1])
+			this.canvas.stroke()
+			return this
+		}
 		// @method #:clear
 		// @return CanvasUtil this
 		// @desc Clears the canvas.

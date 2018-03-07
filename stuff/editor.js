@@ -153,7 +153,7 @@ its inputs to the --return-- --Array-- of the compiled function.`)
 							let newNode = {
 								label: num.toString(),
 								type: module.allNodes.filter(v => v.name == "_const")[0],
-								pos: gui.iui.mouseData.pos.clone(),
+								pos: gui.iui.mouseData.pos.clone().add(this.offset.mul(-1)),
 								inputConn: [],
 								customData: num
 							}
