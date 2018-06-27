@@ -343,6 +343,7 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 			if (fill) {
 				this.canvas.fill()
 			} else {
+				this.canvas.lineTo(poss[0][0] + this.globalOffset[0], poss[0][1] + this.globalOffset[1])
 				this.canvas.stroke()
 			}
 			

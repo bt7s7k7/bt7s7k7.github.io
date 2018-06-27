@@ -1,0 +1,352 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+	<script src="stuff/bUtils.js"></script>
+	<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+	<style>
+		.selectionButton {
+			background-color: #101010;
+			color: white;
+			border: none;
+			display: block;
+		}
+
+			.selectionButton:hover {
+				background-color: #2e2e2e;
+				color: white
+			}
+
+			.selectionButton::selection {
+				outline: none;
+			}
+
+			.selectionButton:active {
+				background-color: white;
+				color: black;
+			}
+
+			.selectionButton.current {
+				background-color: #202020;
+			}
+
+		.listButton {
+			margin-bottom: 20px;
+			padding: 10px 10px 10px 10px;
+			width: calc(100vw - 100px);
+			height: 30px;
+			line-height: 30px;
+			font-size: 20px;
+		}
+
+		.articleMark {
+			color: #ffff00
+		}
+
+		.code {
+			font-family: Consolas;
+			background-color: rgb(11,22,29);
+			padding: 10px 10px 10px;
+		}
+
+		.block {
+			padding: 10px 10px 10px;
+			border: ridge;
+		}
+	</style>
+	<script>
+		/**
+		 * @type {Object<string,HTMLElement>}
+		 */
+		var E = null
+		/**
+		 * @typedef {{name : String, src : String, date : String, series? : {name : String, index : number}}} ArticleDefinition
+		 */
+		/** @type {Object<string,ArticleDefinition[]>} */
+		var seriess = {}
+		/** @type {ArticleDefinition[] | null} */
+		var data = null
+
+
+		function setup() {
+			if ("article" in B.get) {
+				E.listParent.hidden = true
+				E.articleParent.hidden = false
+				E.header.innerText = ""
+			} else {
+				if ("series" in B.get) {
+					E.selectionButtons.innerText = " - " + B.get.series
+				}
+
+			}
+
+			var loader = new XMLHttpRequest()
+			loader.onload = () => {
+				var text = loader.responseText
+
+				try {
+					data = JSON.parse(text)
+				} catch (err) {
+					E.listParent.hidden = true
+					E.articleParent.hidden = true
+					document.body.appendChild(document.createElement("div").transform(v => { v.style.color = "#ff0000"; v.style.fontSize = "50px"; v.innerText = "Error parsing article list" }))
+					throw err
+				}
+
+				if (typeof data == "object" && data instanceof Array) {
+
+				} else {
+					data = []
+				}
+
+				data.forEach((v) => {
+					if ("series" in v) {
+						if (!(v.series.name in seriess)) {
+							seriess[v.series.name] = []
+						}
+						seriess[v.series.name][v.series.index] = v
+					}
+				})
+				if ("article" in B.get) {
+					let curr = data.find((v) => v.src == B.get.article) || { name: B.get.article, src: B.get.article }
+					E.header.innerText = curr.name
+
+					var textLoader = new XMLHttpRequest()
+					textLoader.onload = () => {
+						/** @type {boolean[]} */ var openBlocks = []
+						/** @type {HTMLDivElement[]} */var lastOpen = []
+						textLoader.responseText.split(/\n/g).forEach(v => {
+							if (v[0] == "#") {
+								let header = document.createElement("h1")
+								header.innerText = v[1] == "#" ? v.substring(2) : v.substring(1)
+								E.articleParent.appendChild(header)
+							} else if (v[0] == "'" && v[1] == "'") {
+								if (v.match(/''code/)) {
+									openBlocks.push(true)
+									let div = document.createElement("div")
+									div.className = "code"
+									if (openBlocks.length == 1) E.articleParent.appendChild(div); else lastOpen.last().appendChild(div);
+									lastOpen.push(div)
+								} else if (v.match(/''note/)) {
+									openBlocks.push(false)
+									let div = document.createElement("div")
+									div.className = "block"
+									div.style.backgroundColor = "#333333"
+									div.style.borderColor = "#ffffff"
+									div.appendChild(document.createElement("span").transform(v => { v.style.color = "#ffffff"; v.innerHTML = "<b>Poznámka</b >"; return v }))
+									if (openBlocks.length == 1) E.articleParent.appendChild(div); else lastOpen.last().appendChild(div);
+									lastOpen.push(div)
+								} else if (v.match(/''warn/)) {
+									openBlocks.push(false)
+									let div = document.createElement("div")
+									div.className = "block"
+									div.style.backgroundColor = "#333300"
+									div.style.borderColor = "#ffff00"
+									div.appendChild(document.createElement("span").transform(v => { v.style.color = "#ffff00"; v.innerHTML = "<b>Pozor</b >"; return v }))
+									if (openBlocks.length == 1) E.articleParent.appendChild(div); else lastOpen.last().appendChild(div);
+									lastOpen.push(div)
+								} else if (v.match(/''danger/)) {
+									openBlocks.push(false)
+									let div = document.createElement("div")
+									div.className = "block"
+									div.style.backgroundColor = "#330000"
+									div.style.borderColor = "#ff0000"
+									div.appendChild(document.createElement("span").transform(v => { v.style.color = "#ff0000"; v.innerHTML = "<b>Varovanie</b>"; return v }))
+									if (openBlocks.length == 1) E.articleParent.appendChild(div); else lastOpen.last().appendChild(div);
+									lastOpen.push(div)
+								} else if (v.match(/''/)) {
+									openBlocks.pop()
+									lastOpen.pop()
+								}
+							} else if (v[0] == "'") {
+								if (v.match(/^'.*?:/).length > 0) {
+									var span = document.createElement("span")
+									if (openBlocks.length == 0) E.articleParent.appendChild(span); else lastOpen.last().appendChild(span);
+									var match = v.match(/:.*$/m) || []
+									span.outerHTML = "<" + v.match(/^'.*?:/)[0].slice(1, -1) + " " + (match.length > 0 ? match[0].substr(1) : "") + " />"
+								}
+							} else {
+								let p = openBlocks.last() ? Array.prototype.last.apply(E.articleParent.childNodes) : document.createElement("p")
+								let openTags = []
+								if (openBlocks.last()) p.innerHTML += "<br>"
+								p.innerHTML += B.escapeHTML(v).replace(/&amp;(.*?)(\[|\])/g, (substring, name, bracket) => {
+									if (bracket == "[") {
+										let ret = ""
+										if (!choice(name,
+											"i", () => {
+												openTags.push("i")
+												ret = "<i>"
+											},
+											"b", () => {
+												openTags.push("b")
+												ret = "<b>"
+											},
+											"*y", () => {
+												openTags.push("span")
+												ret = "<span style=\"color:#ffff00\">"
+											},
+											"*g", () => {
+												openTags.push("span")
+												ret = "<span style=\"color:#00ff00\">"
+											},
+											"*b", () => {
+												openTags.push("span")
+												ret = "<span style=\"color:#00ffff\">"
+											}
+										)) {
+											return "<!-- Modifier not found: " + name + " in " + substring + " -->"
+										} else {
+											return ret
+										}
+									} else if (bracket == "]") {
+										if (openTags.length <= 0) return "<!-- Tryied to close a modifier whlist no modifiers were open -->"
+										return "</" + openTags.pop() + ">"
+									} else return "<!-- No brackets match '" + bracket + "' -->"
+								})
+								if (!openBlocks.last()) {
+									if (openBlocks.length > 0) lastOpen.last().appendChild(p)
+									else E.articleParent.appendChild(p)
+								}
+							}
+						})
+
+					}
+
+					textLoader.onerror = (err) => {
+						E.listParent.hidden = true
+						E.articleParent.hidden = true
+						document.body.appendChild(document.createElement("div").transform(v => { v.style.color = "#ff0000"; v.style.fontSize = "50px"; v.innerText = "Error loading article" }))
+						throw err
+					}
+
+					textLoader.open("GET", "./articles/" + curr.src)
+					textLoader.send()
+
+				} else everithing()
+			}
+			loader.onerror = (err) => {
+				E.listParent.hidden = true
+				E.articleParent.hidden = true
+				document.body.appendChild(document.createElement("div").transform(v => { v.style.color = "#ff0000"; v.style.fontSize = "50px"; v.innerText = "Error loading article list" }))
+				throw err
+			}
+
+			loader.open("GET", "./articles/list.json")
+			loader.send()
+		}
+
+		function everithing() {
+			E.everythingButton.className = "selectionButton current"
+			E.listsButton.className = "selectionButton"
+
+			Array.prototype.map.apply(E.content.childNodes, [v=>v]).forEach((v) => {
+				E.content.removeChild(v)
+			})
+
+			data.forEach((v) => {
+				if ("series" in B.get) {
+					if ("series" in v) {
+						if (v.series.name != B.get.series) return
+					} else {
+						return
+					}
+				}
+				var div = document.createElement("a")
+				div.className = "selectionButton listButton"
+				var name = document.createElement("div")
+				name.style.display = "inline-block"
+				name.style.width = "50vw"
+				name.style.overflow = "hidden"
+				name.style.whiteSpace = "nowrap"
+				div.appendChild(name)
+				name.innerText = v.name
+				var date = document.createElement("div")
+				date.style.display = "inline-block"
+				date.style.width = "100px"
+				date.style.overflow = "hidden"
+				date.style.whiteSpace = "nowrap"
+				date.style.marginLeft = "10px"
+				div.appendChild(date)
+				date.innerText = v.date || "?"
+				var series = document.createElement("div")
+				series.style.display = "inline-block"
+				series.style.width = "200px"
+				series.style.overflow = "hidden"
+				series.style.whiteSpace = "nowrap"
+				series.style.marginLeft = "50px"
+				div.appendChild(series)
+				series.innerText = "series" in v ? v.series.name : "-"
+
+				div.href = "?article=" + encodeURIComponent(v.src)
+
+				E.content.appendChild(div)
+			})
+
+			E.dateColumnName.innerText = "Dátum"
+			E.seriesColumnName.innerText = "Séria"
+		}
+
+		function lists() {
+			E.everythingButton.className = "selectionButton"
+			E.listsButton.className = "selectionButton current"
+
+			Array.prototype.map.apply(E.content.childNodes, [v => v]).forEach((v) => {
+				E.content.removeChild(v)
+			})
+
+			seriess.toArray().forEach((v) => {
+				var div = document.createElement("a")
+				div.className = "selectionButton listButton"
+				var name = document.createElement("div")
+				name.style.display = "inline-block"
+				name.style.width = "50vw"
+				name.style.overflow = "hidden"
+				name.style.whiteSpace = "nowrap"
+				div.appendChild(name)
+				name.innerText = v.key
+				var date = document.createElement("div")
+				date.style.display = "inline-block"
+				date.style.width = "100px"
+				date.style.overflow = "hidden"
+				date.style.whiteSpace = "nowrap"
+				date.style.marginLeft = "10px"
+				div.appendChild(date)
+				date.innerText = v.value.length
+
+				div.href = "series=" + encodeURIComponent(v.key)
+
+				E.content.appendChild(div)
+			})
+
+			E.dateColumnName.innerText = "Počet"
+			E.seriesColumnName.innerText = ""
+		}
+
+	</script>
+</head>
+<body style="background-color:#202020;color:white">
+	<header style="position:absolute;top:0px;left:0px;width:calc(100% - 50px);height:75px;background-color:#101010;font-size:40px;font-family:Arial;line-height:75px;padding-left:50px" id="header">
+		Články
+		<span id="selectionButtons">
+			<button id="everythingButton" class="selectionButton current" onclick="everithing()" style="position:relative;top:14px;height:40px;font-size:30px;line-height:30px;padding: 0px 20px 0px 20px;margin-left:100px;display:inline-block">
+				Všetko
+			</button>
+			<button id="listsButton" class="selectionButton" onclick="lists()" style="position:relative;top:14px;height:40px;font-size:30px;line-height:30px;padding: 0px 20px 0px 20px;display:inline-block">
+				Zoznamy
+			</button>
+		</span>
+	</header>
+	<article id="listParent">
+		<span style="position:absolute;top:75px;left:60px;font-size:20px;line-height:60px">
+			Názov
+		</span>
+		<span style="position:absolute;top:75px;left:calc(60px + 50vw + 10px);font-size:20px;line-height:60px" id="dateColumnName">
+			Dátum
+		</span>
+		<span style="position:absolute;top:75px;left:calc(60px + 50vw + 10px + 100px + 50px);font-size:20px;line-height:60px" id="seriesColumnName">
+			Séria
+		</span>
+		<span id="content" style="position:absolute;top:120px;left:50px"></span>
+	</article>
+	<article id="articleParent" style="position:absolute;top:75px;left:0px;padding-left:30px;padding-right:30px;text-align:justify" hidden></article>
+</body>
+</html>

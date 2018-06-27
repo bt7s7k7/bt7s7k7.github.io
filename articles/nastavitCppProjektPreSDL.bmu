@@ -1,0 +1,20 @@
+﻿Vytvoríme prázdny, zatiaľ konzolový, C++ projekt. Odporúčam použiť možnosť Precompiled Headers pretože header SDL je dosť veľký.
+'img:src="./articles/assets/VSProjectCreation.png"
+Otvoríme Project/Properties &i[(Alt+F7)&], odtial VC++ Directories.
+'img:src="./articles/assets/VSVCppDirectories.png"
+Do poľa Include Directories pridáme includes priečinok z priečinku SDL. Do poľa Library Directories pridáme lib\x86 priečinok z priečinku SDL.
+''note
+Použijeme priečinok x86, pretože Visual Studio štandardne kompiluje 32 bitové binárky. Ak ste prenastavili Visual Studio na 64 bitov, použiťe priečinok x64.
+''
+Teraz v Linker/Input. 
+'img:src="./articles/assets/VSLinkerInput.png"
+V poli Additional Dependencies pridáme:
+''code
+SDL2.lib;
+SDL2main.lib;
+''
+
+''note
+Najprv sme nastavili prjekt na konzolový subsystém, aby sme mohly vypisovať chyby alebo debugové informácie. Toto sa dá zmeniť v Linker/System, v poli Subsystem.
+'img:src="./articles/assets/VSLinkerSystem.png"
+''

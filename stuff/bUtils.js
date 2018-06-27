@@ -167,7 +167,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				v.addEventListener("change",eventFunc)
 				eventFunc()
 			})
-			
+			B.fps = 0
 			var updateFunc = (auto)=>{//@@@update
 				if (!hadScriptError) {
 					requestAnimationFrame(updateFunc)
@@ -268,7 +268,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		window.onunload = function () {
 			var error = false
 			try {
-				if (window.exit) {
+				if (typeof window.exit == "function") {
 					exit()
 				}
 			} catch (err) {
@@ -1718,6 +1718,9 @@ Array.prototype.arr2d = function(width,pos,value) {
 Array.prototype.floor = function() {
 	return this.map(v=>v.floor())
 }
+Array.prototype.ceil = function() {
+	return this.map(v=>v.ceil())
+}
 
 Array.prototype.reflect = function (normal) {
 	return this.add(normal.mul(2 * this.dot(normal) * -1))
@@ -1859,8 +1862,8 @@ Number.prototype.lerp = function (target,frac) {
 
 
 Math.__oldRandom__ = Math.random
-Math.random = function (max,floor) {
-	var rand = Math.__oldRandom__()
+Math.random = function (max, floor, predictableIndex = false) {
+	var rand = (typeof predictableIndex == "number") ? parseFloat('0.' + Math.sin(predictableIndex).toString().substr(6)) : Math.__oldRandom__()
 	if (max == undefined) {
 		return rand
 	}
