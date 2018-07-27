@@ -21,7 +21,12 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 		// @param color Vector3
 		// @return CanvasUtil this
 		// @desc Use to change color of operations.
-		this.setColor = function(color) {
+		this.setColor = function (color) {
+			if (color instanceof CanvasGradient) {
+				this.canvas.fillStyle = color
+				this.canvas.strokeStyle = color
+				return this
+			}
 			if (color[0] > 255) {
 				color[0] = 255
 			} else if (color[0] < 0) {
@@ -63,8 +68,9 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 		// @param size Vector2 The size of the rect
 		// @return CanvasUtil this
 		// @desc Draw a hollow box with the desired size and position.
-		this.rect = function(pos,size) {
+		this.rect = function(pos,size,width = 1) {
 			pos = pos.add(this.globalOffset)
+			this.canvas.lineWidth = width
 			this.canvas.beginPath()
 			this.canvas.rect(pos[0],pos[1],size[0],size[1])
 			this.canvas.stroke()
@@ -116,9 +122,10 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 		// @method #:strokeEllipse
 		// @param pos Vector2 The position of the ellipse
 		// @param size Vector2 The size of the ellipse
+		// @param width float Line width
 		// @param range Vector2 Two 2D radial spherical coordinates.
 		// @return CanvasUtil this
-		// @desc Draw a ellipse with the desired size and position. The spherical coordinates mark from to where to draw the arc of the of the ellipse.
+		// @desc Draw an empty ellipse with the desired size and position. The spherical coordinates mark from to where to draw the arc of the of the ellipse.
 		this.strokeEllipse = function(pos,size,width = 1,rot = [0,Math.PI * 2]) {
 			pos = pos.add(this.globalOffset)
 			this.canvas.lineWidth = width;
@@ -214,105 +221,107 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 		//--------------------------------------------------------------------------------------------------------------------------------------------
 		//                                                        !!DEPRECATED!!
 		//--------------------------------------------------------------------------------------------------------------------------------------------
-		this.sprites = []
-		this.drawSpriteColl = false
+		{
+			this.sprites = []
+			this.drawSpriteColl = false
 
-		this.addSprite = function (pos,size,color,coll = true) {
-			var sprite = {pos:pos,size:size,color:color,coll:coll}
-			var id = this.sprites.length
-			var sprites = this.sprites
-			sprite.remove = function () {
-				sprites.splice(sprites.indexOf(sprite),1)
-			}
-			sprite.move = function(offset) {
-				pos = pos.add(offset)
-			}
-			sprite.collides = function (other,second = false) {
-				if (!other.coll) {return}
-				var coll = false
-				var edges = [
-					sprite.wpos(),
-					sprite.wpos().add([sprite.size[0],0]),
-					sprite.wpos().add([0,sprite.size[1]]),
-					sprite.wpos().add([sprite.size[0],sprite.size[1]])
-				]
-				edges.forEach((edge)=>{
-					var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
-					var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
-					coll = coll || (xs && ys)
-				})
-				if (!second) {
-					coll = coll || other.collides(sprite,true)
+			this.addSprite = function (pos, size, color, coll = true) {
+				var sprite = { pos: pos, size: size, color: color, coll: coll }
+				var id = this.sprites.length
+				var sprites = this.sprites
+				sprite.remove = function () {
+					sprites.splice(sprites.indexOf(sprite), 1)
 				}
-				return coll
-			}
-			sprite.intersects = function (other) {
-				var coll = false
-				var edges = [
-					sprite.wpos(),
-					sprite.wpos().add([sprite.size[0],0]),
-					sprite.wpos().add([0,sprite.size[1]]),
-					sprite.wpos().add([sprite.size[0],sprite.size[1]])
-				]
-				edges.forEach((edge)=>{
-					var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
-					var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
-					coll = coll || (xs && ys)
-				})
-				return coll
-			}
-			
-			sprite.collidesAny = function () {
-				var coll = 0
-				sprites.forEach((v)=>{
-					if (v != sprite) {
-						if (sprite.collides(v)) {
-							coll++
+				sprite.move = function (offset) {
+					pos = pos.add(offset)
+				}
+				sprite.collides = function (other, second = false) {
+					if (!other.coll) { return }
+					var coll = false
+					var edges = [
+						sprite.wpos(),
+						sprite.wpos().add([sprite.size[0], 0]),
+						sprite.wpos().add([0, sprite.size[1]]),
+						sprite.wpos().add([sprite.size[0], sprite.size[1]])
+					]
+					edges.forEach((edge) => {
+						var xs = edge[0].between(other.wpos()[0], other.wpos()[0] + other.size[0])
+						var ys = edge[1].between(other.wpos()[1], other.wpos()[1] + other.size[1])
+						coll = coll || (xs && ys)
+					})
+					if (!second) {
+						coll = coll || other.collides(sprite, true)
+					}
+					return coll
+				}
+				sprite.intersects = function (other) {
+					var coll = false
+					var edges = [
+						sprite.wpos(),
+						sprite.wpos().add([sprite.size[0], 0]),
+						sprite.wpos().add([0, sprite.size[1]]),
+						sprite.wpos().add([sprite.size[0], sprite.size[1]])
+					]
+					edges.forEach((edge) => {
+						var xs = edge[0].between(other.wpos()[0], other.wpos()[0] + other.size[0])
+						var ys = edge[1].between(other.wpos()[1], other.wpos()[1] + other.size[1])
+						coll = coll || (xs && ys)
+					})
+					return coll
+				}
+
+				sprite.collidesAny = function () {
+					var coll = 0
+					sprites.forEach((v) => {
+						if (v != sprite) {
+							if (sprite.collides(v)) {
+								coll++
+							}
 						}
+					})
+					return coll
+				}
+				sprite.parent = null
+				sprite.wpos = function () {
+					if (sprite.parent) {
+						return sprite.pos.add(sprite.parent.wpos())
+					} else {
+						return sprite.pos
+					}
+				}
+				this.sprites[id] = sprite
+				return sprite
+			}
+
+			this.drawSprites = function (offset) {
+				this.sprites.forEach((v) => {
+					if (v.color) {
+						this.setColor(v.color)
+						this.box(v.wpos().add(this.globalOffset), v.size)
 					}
 				})
-				return coll
-			}
-			sprite.parent = null
-			sprite.wpos = function() {
-				if (sprite.parent) {
-					return sprite.pos.add(sprite.parent.wpos())
-				} else {
-					return sprite.pos
+				if (this.drawSpriteColl) {
+					this.sprites.forEach((v) => {
+						this.setColor(colors.green)
+						this.rect(v.wpos().add(this.globalOffset), v.size)
+					})
 				}
 			}
-			this.sprites[id] = sprite
-			return sprite
-		}
 
-		this.drawSprites = function (offset) {
-			this.sprites.forEach((v)=>{
-				if (v.color) {
-					this.setColor(v.color)
-					this.box(v.wpos().add(this.globalOffset),v.size)
-				}
-			})
-			if (this.drawSpriteColl) {
-				this.sprites.forEach((v)=>{
-					this.setColor(colors.green)
-					this.rect(v.wpos().add(this.globalOffset),v.size)
+			this.castPoint = function (edge) {
+				ret = null
+				this.sprites.forEach((other) => {
+					if (!other.coll) { return }
+
+					var xs = edge[0].between(other.wpos()[0], other.wpos()[0] + other.size[0])
+					var ys = edge[1].between(other.wpos()[1], other.wpos()[1] + other.size[1])
+
+					if (xs && ys) {
+						ret = other
+					}
 				})
+				return ret
 			}
-		}
-
-		this.castPoint = function(edge) {
-			ret = null
-			this.sprites.forEach((other)=>{
-				if (!other.coll) {return}
-				
-				var xs = edge[0].between(other.wpos()[0],other.wpos()[0] + other.size[0])
-				var ys = edge[1].between(other.wpos()[1],other.wpos()[1] + other.size[1])
-
-				if (xs && ys) {
-					ret =  other
-				}
-			})
-			return ret
 		}
 		//-----------------------------------------------------------END OF DEPRECATED----------------------------------------------------------------
 		// @method #:toWorld
@@ -343,7 +352,6 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 			if (fill) {
 				this.canvas.fill()
 			} else {
-				this.canvas.lineTo(poss[0][0] + this.globalOffset[0], poss[0][1] + this.globalOffset[1])
 				this.canvas.stroke()
 			}
 			
@@ -373,7 +381,8 @@ B.module.init("canvas",1.003,["prototypes"],()=>{
 		this.measureText = function (height,txt,font = "Arial") {
 			canvas.font = height + "px " + font
 			var ret = canvas.measureText(txt)
-			return ret
+			var height = height + (height * 1.1) * (txt.split("\n").length - 1)
+			return { width: ret.width, height }
 		}
 	}
 

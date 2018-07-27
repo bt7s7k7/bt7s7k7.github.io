@@ -1,0 +1,149 @@
+<html>
+<head>
+	<script src="stuff/bUtils.js"></script>
+	<script src="stuff/canvas.js"></script>
+	<script src="stuff/nodeGraph.js"></script>
+	<script src="stuff/bFlow.js"></script>
+	<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+	<script>
+		var output, editor
+						/** @type {Object<string,HTMLElement>} */ var E = null
+		var settings = {
+			resolution: 512,
+			aspectRatio: 1
+		}
+		var imgs = [new ImageData(1, 1), new ImageData(1, 1), new ImageData(1, 1)]
+		var result = new ImageData(1, 1)
+		var pos = null
+		var fullscreen = false
+
+		function setup() {
+			editor = new NodeGraph(E.editor.toCtx(), [["color", "Color"]])
+			editor.apply(NodeGraph.prefabs.numbers)
+			editor.apply(NodeGraph.prefabs.logic)
+			editor.apply(NodeGraph.prefabs.trigonometry)
+			editor.apply(NodeGraph.prefabs.color)
+			editor.apply(NodeGraph.prefabs.vector)
+			editor.apply(NodeGraph.prefabs.string)
+			editor.apply(NodeGraph.prefabs.meta)
+			editor.registerNodeTemplate("Input", "pos", "Position", "$RETURN = [__args.pos[0],__args.pos[1],__args.pos,__args.aspectRatio]", [[], [["number", "X"], ["number", "Y"], ["vector", "Vector"], ["number", "Aspect Ratio"]]])
+			editor.registerNodeTemplate("Input", "posA", "Position Aspected", "$RETURN = [__args.pos[0] * __args.aspectRatio,__args.pos[1],__args.pos.scale([__args.aspectRatio,1])]", [[], [["number", "X"], ["number", "Y"], ["vector", "Vector"]]])
+			editor.registerNodeTemplate("Input", "imgs", "Images", "$RETURN = __args.imgs", [[], [["image", "1st"], ["image", "2nd"], ["image", "3rd"]]])
+			if (!("saved" in B.l)) B.l.saved = {}
+			if ("autosave" in B.l.saved && !B.get.fresh) editor.deserialize(B.l.saved.autosave)
+			B.formify(E.controlls, settings, "Render", true, () => render())
+			output = E.output.toCtx()
+			imgs.forEach((v, i) => {
+				var input = E["img" + (i + 1)]
+				input.onchange = () => {
+					/**
+					 * @type {File[]}
+					 */
+					var files = [...input.files]
+					if (input.value != "") {
+						if (files.length == 1) {
+							let file = files[0]
+							let url = URL.createObjectURL(file)
+							var ctx = CanvasUtil.virtual([0, 0])
+							ctx.load(url, [0, 0], "image+transform", () => {
+								imgs[i] = ctx.getImageData()
+								URL.revokeObjectURL(url)
+							})
+						}
+					}
+				}
+			})
+		}
+
+		function update() {
+			if (B.keysPress.s) {
+				B.createForm(null, [{
+					name: "Save Graph",
+					type: "none"
+				}, {
+					id: "name",
+					name: "Name",
+					value: "New Node Graph",
+					type: "text"
+				}], "Save", true).then(({ name }) => {
+					B.l.saved[name] = editor.serialize()
+				})
+			}
+
+			if (B.keysPress.l) {
+				B.createForm(null, [{
+					name: "Load Graph",
+					type: "none"
+				}, {
+					id: "name",
+					name: "Name",
+					type: "selection",
+					value: B.l.saved.toArray().map(v => v.key)[0],
+					options: B.l.saved.toArray().map(v => v.key)
+				}], "Load", true).then(({ name }) => {
+					editor.deserialize(B.l.saved[name])
+				})
+			}
+
+			editor.ctx.setSize(editor.ctx.canvas.canvas.getSize().floor().add([0, 1]))
+			editor.update()
+
+			if (fullscreen) {
+				E.output.style.height = "calc(100vh / " + settings.aspectRatio + ")"
+				E.output.style.width = "100vh"
+				E.output.style.top = "0px"
+				E.output.style.left = "calc(50vw - 50vh)"
+			} else {
+				E.output.style.height = "calc((50vh - 15px) / " + settings.aspectRatio + ")"
+				E.output.style.width = "calc((50vh - 15px))"
+				E.output.style.top = "calc(50vh + 5px)"
+				E.output.style.left = "8px"
+			}
+			
+			output.setSize(result.getSize())
+			output.load(result)
+
+			if (pos != null) {
+				var startTime = Date.now()
+				var func = eval(editor.compiledCode)
+				while (Date.now() - startTime < 18) {
+					if (pos[1] >= result.height) {
+						pos = null
+						break
+					}
+
+					var normalizedPos = pos.antiscale(result.getSize())
+					var value = func({ aspectRatio: settings.aspectRatio, pos: normalizedPos, imgs })
+					result.setPixel(pos,value[0].mul(255))
+
+					pos[0]++
+					if (pos[0] >= result.width) {
+						pos[0] = 0
+						pos[1]++
+					}
+				}
+			}
+		}
+
+		function exit() {
+			B.l.saved.autosave = editor.serialize()
+		}
+
+		function render() {
+			result = new ImageData(Math.floor(settings.aspectRatio * settings.resolution), settings.resolution)
+			pos = [0,0] 
+		}
+
+	</script>
+</head>
+<body>
+	<canvas style="position:absolute;top:0px;left:0px;width:100vw;height: calc(50vh - 5px)" id="editor"></canvas>
+	<div style="position:absolute;top:calc(50vh + 5px);left: calc(50vh + 5px)">
+		<span id="controlls"></span><br>
+		<input type="file" accept="image/*" id="img1"> <span onupdate="this.innerText = imgs[0].getAspectRatio() + ' ' + imgs[0].width + 'px'"></span> <button onclick="this.parentElement.children[0].children[1].children[0].value = this.parentElement.children[3].innerText.split(' ')[0]"><</button><br>
+		<input type="file" accept="image/*" id="img2"> <span onupdate="this.innerText = imgs[1].getAspectRatio() + ' ' + imgs[1].width + 'px'"></span> <button onclick="this.parentElement.children[0].children[1].children[0].value = this.parentElement.children[7].innerText.split(' ')[0]"><</button><br>
+		<input type="file" accept="image/*" id="img3"> <span onupdate="this.innerText = imgs[2].getAspectRatio() + ' ' + imgs[2].width + 'px'"></span> <button onclick="this.parentElement.children[0].children[1].children[0].value = this.parentElement.children[11].innerText.split(' ')[0]"><</button><br>
+	</div>
+	<canvas class="border S500x500" width="500" height="500" style="position:absolute;top: calc(50vh + 5px);left:8px;height: calc((50vh - 15px) * 1);width: calc(50vh - 15px);left: 10px" id="output" onclick="fullscreen = !fullscreen"></canvas>
+</body>
+</html>

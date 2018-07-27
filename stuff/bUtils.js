@@ -49,6 +49,9 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 	} else {
 		B.keys = {}
 		B.keysPress = {}
+		B.mouseDown = [false, false, false, false, false]
+		B.mousePos = [0, 0]
+		B.mouseDelta = [0,0]
 		B.pathTo = document.currentScript.src.split("/").slice(0,-1).join("/")
 		B.src = document.currentScript.src
 		B.worker = {
@@ -136,12 +139,24 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			Window.prototype.getSize = function() {
 				return [this.innerWidth,this.innerHeight]
 			}
-			document.body.addEventListener("keydown",event=>{
+			document.body.addEventListener("keydown", event => {
+				if (B.modalWindow) return
 				B.keys[event.key] = true
 				B.keysPress[event.key] = true
 			})
 			document.body.addEventListener("keyup",event=>{
 				B.keys[event.key] = false
+			})
+			document.body.addEventListener("mousedown", event => {
+				B.mouseDown[event.button] = true
+			})
+			document.body.addEventListener("mouseup", event => {
+				B.mouseDown[event.button] = false
+			})
+			document.body.addEventListener("mousemove", event => {
+				var pos = [event.clientX, event.clientY]
+				B.mouseDelta = pos.add(B.mousePos.mul(-1))
+				B.mousePos = pos
 			})
 			
 			document.querySelectorAll("[globalValue]").forEach((v)=>{
@@ -167,7 +182,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				v.addEventListener("change",eventFunc)
 				eventFunc()
 			})
-			B.fps = 0
+			
 			var updateFunc = (auto)=>{//@@@update
 				if (!hadScriptError) {
 					requestAnimationFrame(updateFunc)
@@ -268,7 +283,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		window.onunload = function () {
 			var error = false
 			try {
-				if (typeof window.exit == "function") {
+				if (window.exit) {
 					exit()
 				}
 			} catch (err) {
@@ -661,21 +676,24 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		a.click()
 	}
 	
-	B.loadFile = function(acceptString = "image/*",multiple = false) {
+	B.loadFile = function(acceptString = "image/*",multiple = false,input = document.createElement("input")) {
 		return new Promise((resolve,reject)=>{
-			var input = document.createElement("input")
 			input.type = "file"
 			input.accept = acceptString
 			input.multiple = multiple
-			input.onchange = function(event) {
+			var onchange = function(event) {
 				var files = [...input.files]
 				if (input.value == "") {
 					reject([])
 				} else {
 					resolve(files)
 				}
+				input.removeEventListener("change", onchange)
+				input.value = ""
 			}
+			input.addEventListener("change",onchange)
 			input.click()
+			
 		})
 	}
 	
@@ -690,7 +708,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		})
 	}
 	
-	B.createForm = function(element,fields,submitText = "OK") {
+	B.createForm = function(element,fields,submitText = "OK",enterToSubmit = false) {
 		/* @@@createForm
 			[
 				name: "Address",
@@ -708,6 +726,12 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			]
 		*/
 		//console.log(element.childNodes);
+		var madeModalWindow = false
+		if (element == null) {
+			element = B.createModalWindow()
+			madeModalWindow = true
+		}
+
 	
 		[...element.childNodes].clone().forEach((v)=>{
 			//console.log(v)
@@ -732,6 +756,9 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 					},
 					"none",()=>{
 						
+					},
+					"color", () => {
+						ret[v.id || v.name] = colors.fromHex(elem.getElementsByTagName("input")[0].value)
 					}
 				)
 			})
@@ -742,7 +769,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			
 			var span = document.createElement("span")
 			var br = document.createElement("br")
-			span.innerText = v.name + ": "
+			span.innerText = (v.name == "") ? "" : ((v.type == "none") ? v.name : v.name + ": ")
 			span.setAttribute("name",v.id)
 			
 			choice(v.type,
@@ -754,7 +781,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 					input.onchange = function () {
 						changeFunc(parseFunc())
 					}
-					
+					input.focus()
 					span.appendChild(input)
 				},
 				"thruth",()=>{
@@ -776,6 +803,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 					input.onchange = function () {
 						changeFunc(parseFunc())
 					}
+					input.focus()
 
 					if (v.range) {
 						input.min = v.range.min
@@ -799,7 +827,19 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 					select.value = v.value
 					span.appendChild(select)
 				},
-				"none",()=>{},
+				"none", () => { },
+				"color", () => {
+					var input = document.createElement("input")
+					input.type = "color"
+					input.value = v.value.toHex()
+
+					input.onchange = function () {
+						changeFunc(parseFunc())
+					}
+
+					span.appendChild(input)
+					
+				},
 				()=>{
 					throw new Error("Invalid value type")
 				}
@@ -816,8 +856,28 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		var promise = new Promise((resolve)=>{
 			button.onclick = function() {
 				resolve(parseFunc())
+				if (madeModalWindow) element.delete()
 			}
 		})
+		if (madeModalWindow) {
+			let cancelButton = document.createElement("button")
+			cancelButton.innerText = "Cancel"
+			cancelButton.onclick = () => {
+				element.delete()
+			}
+			element.appendChild(cancelButton)
+		}
+		if (enterToSubmit) {
+			let listener = (event) => {
+				if (event.key == "Enter") {
+					event.target.removeEventListener("keydown", listener)
+
+					button.click()
+				}
+			}
+			element.addEventListener("keydown", listener)
+			
+		}
 		var ret = {}
 		var changeFunc = ()=>{}
 		ret.change = function(func) {
@@ -831,9 +891,10 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		return ret
 	}
 	
-	B.formify = function(element,object,buttonText = "OK",repeat = false,callback = ()=>{}) {
+	B.formify = function (element, object, buttonText = "OK", repeat = false, callback = (object) => { }, enterToSubmit = false) {
 		var formFields = []
-		object.forEach((v,i)=>{
+		object.forEach((v, i) => {
+			var i = i.toString()
 			if (i[0] == "$") return
 			choice(typeof v,
 				"number",()=>{
@@ -869,17 +930,51 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 						value: v,
 						type: "thruth"
 					})
+				},
+				"object", () => {
+					if (v instanceof Array) if (v.length == 3 || v.length == 4) {
+						formFields.push({
+							name: i.firstUpper(),
+							id: i,
+							value: v,
+							type: "color"
+						})
+					}
 				}
 			)
 		})
 		
-		B.createForm(element,formFields,buttonText).then((data)=>{
+		B.createForm(element,formFields,buttonText,enterToSubmit).then((data)=>{
 			data.forEach((v,i)=>{
 				object[i] = v
 			})
 			callback(data)
 			if (repeat) B.formify(element,object,buttonText,repeat,callback)
 		})
+	}
+	B.modalWindow = null
+	B.createModalWindow = function (bgColor = "white") {
+		if (this.modalWindow) {
+			this.modalWindow.delete()
+		}
+		var bg = document.createElement("div")
+		bg.style = "position: fixed; top: 0px; left: 0px; background-color: rgba(0,0,0,0.5);width:100%;height:100%"
+		document.body.appendChild(bg)
+		var window = document.createElement("div")
+		window.style.backgroundColor = bgColor
+		window.style.position = "absolute"
+		window.style.top = "50%"
+		window.style.left = "50%"
+		window.style.minWidth = "10px"
+		window.style.minHeight = "10px"
+		window.style.padding = "10px 10px 10px 10px"
+		bg.appendChild(window)
+		window.delete = () => {
+			document.body.removeChild(B.modalWindow.parentElement)
+			B.modalWindow = null
+		}
+		this.modalWindow = window
+		return window
 	}
 	
 } else {
@@ -1481,6 +1576,8 @@ Array.prototype.size = function() {
 }
 
 Array.prototype.normalize = function () {
+	if (this.equals([0,0])) return [0,0]
+
 	var ret = []
 	
 	this.forEach((v)=>{
@@ -1499,6 +1596,10 @@ Array.prototype.to3D = function() {
 
 Array.prototype.dist = function(target) {
 	return Math.hypot(...this.map((v,i)=>{return v - target[i]}))
+}
+
+Array.prototype.distSqr = function (target) {
+	return this.map((v,i)=>(v - target[i]) ** 2).sum()
 }
 
 Array.prototype.dist3d = function(target) {
@@ -1701,8 +1802,8 @@ Array.prototype.singleValue = function(func) {
 	return curr
 }
 
-Array.prototype.random = function() {
-	return this[Math.floor(Math.random() * (this.length))]
+Array.prototype.random = function(predictableIndex = null) {
+	return this[Math.random(this.length-1,true,predictableIndex)]
 }
 
 Array.prototype.arr2d = function(width,pos,value) {
@@ -1757,7 +1858,7 @@ Array.prototype.rotate = function(angle) {
 	var myAngle = this.toAngle()
 	var mag = this.size()
 	
-	return vector.fromAngle(myAngle).mul(mag)
+	return vector.fromAngle(myAngle + angle).mul(mag)
 }
 Array.prototype.lerp = function (target,frac) {
 	return this.map((v,i)=>v.lerp(target[i],frac))
@@ -1771,9 +1872,48 @@ Array.prototype.volume = function() {
 Array.prototype.containsVector = function(vector) {
 	return this.map((v)=>v.equals(vector)).sum() == 1
 }
+
+Array.prototype.toHex = function () {
+	var ret = "#"
+	this.forEach((v) => {
+		ret += v.toString(16).fillZeroPrefix(2)
+	})
+	return ret
+}
+
+Array.prototype.copy = function () {
+	return this.map(v=>v)
+}
+
+Array.prototype.shuffle = function (predicatble = false) {
+	var src = this.copy()
+	var ret = []
+	repeat(src.length, (i) => {
+		var i = Math.random(src.length - 1, true,((predicatble) ? i : false))
+		ret.push(src[i])
+		src.splice(i,1)
+	})
+	return ret
+}
+
+Array.prototype.countContent = function (content) {
+	var ret = 0
+	this.forEach((v) => {
+		if (typeof content == "function") ret += content(v)
+		else if (v == content) ret++
+	})
+
+	return ret
+}
+
+Array.prototype.clamp = function (max, min) {
+	return this.map((v,i)=>v.clamp(max[i],min[i]))
+}
+
 // @@@endArray
 String.prototype.random = Array.prototype.random
-String.prototype.firstUpper = function() {
+String.prototype.firstUpper = function () {
+	if (this.length == 0) return ""
 	var ret = this.split("")
 	ret[0] = ret[0].toUpperCase()
 	return ret.join("")
@@ -1781,6 +1921,10 @@ String.prototype.firstUpper = function() {
 
 String.prototype.escape = function () {
 	return JSON.stringify(this)
+}
+
+String.prototype.fillZeroPrefix = function(num,filler = "0") {
+	return filler.repeat(num - this.length) + this
 }
 
 
@@ -1862,7 +2006,7 @@ Number.prototype.lerp = function (target,frac) {
 
 
 Math.__oldRandom__ = Math.random
-Math.random = function (max, floor, predictableIndex = false) {
+Math.random = function (max,floor,predictableIndex = false) {
 	var rand = (typeof predictableIndex == "number") ? parseFloat('0.' + Math.sin(predictableIndex).toString().substr(6)) : Math.__oldRandom__()
 	if (max == undefined) {
 		return rand
@@ -1891,6 +2035,15 @@ Math.fraction = function(begin,end,point) {
 Math.normalizeAngle = function(angle) {
 	return angle.overflow(0,Math.PI * 2).valueOf()
 }
+Math.closestPwrOfTwo = function (v) {
+	v--;
+	v |= v >> 1;
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+	return v + 1;
+}
 
 colors = { // @@@colors
 	red : [255,0,0],
@@ -1911,6 +2064,33 @@ colors = { // @@@colors
 	},
 	random: function () {
 		return Array.getFilled(3,()=>Math.random(255,true))
+	},
+	fromHSL: function (hsl) {
+		var r, g, b;
+		var h = hsl[0]
+		var s = hsl[1]
+		var l = hsl[2]
+
+		if (s == 0) {
+			r = g = b = l; // achromatic
+		} else {
+			function hue2rgb(p, q, t) {
+				if (t < 0) t += 1;
+				if (t > 1) t -= 1;
+				if (t < 1 / 6) return p + (q - p) * 6 * t;
+				if (t < 1 / 2) return q;
+				if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+				return p;
+			}
+
+			var q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+			var p = 2 * l - q;
+			r = hue2rgb(p, q, h + 1 / 3);
+			g = hue2rgb(p, q, h);
+			b = hue2rgb(p, q, h - 1 / 3);
+		}
+
+		return [r * 255, g * 255, b * 255];
 	},
 	gray: [127,127,127],
 	grey: [127,127,127],
@@ -2152,6 +2332,9 @@ if (!B.isNode) {
 		var id = (pos[0] + pos[1] * this.width) * 4
 		return [this.data[id + 0],this.data[id + 1],this.data[id + 2]]
 	}
+	ImageData.prototype.getAspectRatio = function () {
+		return this.width / this.height
+	}
 	
 	ImageData.prototype.fill = function(color) {
 		repeat(this.width,(x)=>{
@@ -2231,6 +2414,10 @@ Object.prototype.map = function (func) {
 	return ret
 }
 
+Object.prototype.copy = function () {
+	return Object.assign({},this)
+}
+
 Object.prototype.toArray = function () {
 	ret = []
 	this.forEach((v,i)=>{
@@ -2249,6 +2436,13 @@ Object.prototype.filter = function (callback) {
 		if (callback(v,i,this)) ret[i] = v
 	})
 	return ret
+}
+
+Object.prototype.assert = function (callback, error) {
+	if (!callback(this)) {
+		throw error
+	}
+	return this
 }
 
 if (B.isWorker) {
