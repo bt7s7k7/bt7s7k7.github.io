@@ -89,10 +89,10 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 
 		ctx.canvas.canvas.addEventListener("mousedown", (event => {
 			if (event.button == 0) {
-				if (this.contextMenu && this.contextMenu.getRect().testPoint([event.clientX, event.clientY])) {
-					this.contextMenu.click([event.clientX, event.clientY], this)
+				if (this.contextMenu && this.contextMenu.getRect().testPoint(event.getPos())) {
+					this.contextMenu.click(event.getPos(), this)
 				} else {
-					lastLeft = this.inverseTranfrom([event.clientX, event.clientY])
+					lastLeft = this.inverseTranfrom(event.getPos())
 					leftSelectedConnector = this.getConnectorAtPos(lastLeft)
 					if (!leftSelectedConnector) {
 						leftSelectedNode = this.getNodeAtPos(lastLeft)
@@ -108,7 +108,7 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 			}
 			if (event.button == 1) {
 
-				lastMiddle = this.inverseTranfrom([event.clientX, event.clientY])
+				lastMiddle = this.inverseTranfrom(event.getPos())
 				this.contextMenu = null
 			}
 			if (event.button == 2) {
@@ -121,7 +121,7 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 							var value = typeof type.def == "object" ? (type.def instanceof Array ? obj.toArray().map(v => v.value) : obj) : obj[""]
 							//var value = type.parseConstant(entry)
 							var index = this.nodes.push({
-								pos: this.inverseTranfrom([event.clientX, event.clientY]),
+								pos: this.inverseTranfrom(event.getPos()),
 								template: constantTemplate,
 								genericType: type.name,
 								inputs: [],
@@ -143,10 +143,10 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 					leftSelectedConnector = null
 					delete this[drawQueue].cursorLine
 				} else {
-					this.openContextMenu([event.clientX, event.clientY])
-					let node = this.getNodeAtPos(this.inverseTranfrom([event.clientX, event.clientY]))
+					this.openContextMenu(event.getPos())
+					let node = this.getNodeAtPos(this.inverseTranfrom(event.getPos()))
 					if (node) {
-						this.contextMenu = data.NodeGraph.ContextMenu.makeDeleteOffer([event.clientX, event.clientY], node)
+						this.contextMenu = data.NodeGraph.ContextMenu.makeDeleteOffer(event.getPos(), node)
 					}
 				}
 			}
@@ -154,7 +154,7 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 		ctx.canvas.canvas.addEventListener("mouseup", (event => {
 			if (event.button == 0) {
 				if (leftSelectedConnector) {
-					var second = this.getOutputConnectorAtPos(this.inverseTranfrom([event.clientX, event.clientY]))
+					var second = this.getOutputConnectorAtPos(this.inverseTranfrom(event.getPos()))
 					if (second) {
 						var outputType = second[2]
 						var inputType = leftSelectedConnector[2]
@@ -179,19 +179,19 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 		ctx.canvas.canvas.addEventListener("mousemove", (event => {
 			if (lastLeft) {
 				if (leftSelectedNode) {
-					var newPos = this.inverseTranfrom([event.clientX, event.clientY])
+					var newPos = this.inverseTranfrom(event.getPos())
 					var diff = newPos.add(lastLeft.mul(-1))
 					leftSelectedNode.pos = leftSelectedNode.pos.add(diff)
-					lastLeft = this.inverseTranfrom([event.clientX, event.clientY])
+					lastLeft = this.inverseTranfrom(event.getPos())
 				} else if (leftSelectedConnector != null) {
-					this[drawQueue].cursorLine = (() => this.drawConnection(this.inverseTranfrom([event.clientX, event.clientY]), this.getConnectorPos(leftSelectedConnector[0], leftSelectedConnector[1]), leftSelectedConnector[2].color))
+					this[drawQueue].cursorLine = (() => this.drawConnection(this.inverseTranfrom(event.getPos()), this.getConnectorPos(leftSelectedConnector[0], leftSelectedConnector[1]), leftSelectedConnector[2].color))
 				}
 			}
 			if (lastMiddle) {
-				var newPos = this.inverseTranfrom([event.clientX, event.clientY])
+				var newPos = this.inverseTranfrom(event.getPos())
 				var diff = newPos.add(lastMiddle.mul(-1))
 				this.viewPos = this.viewPos.add(diff.mul(-1))
-				lastMiddle = this.inverseTranfrom([event.clientX, event.clientY])
+				lastMiddle = this.inverseTranfrom(event.getPos())
 			}
 		}))
 		ctx.canvas.canvas.addEventListener("contextmenu", (event) => {
@@ -207,7 +207,7 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 			var diff = pos.add(this.viewPos.mul(-1))
 			var dir = diff.normalize()
 			var size = diff.size()
-			return dir.mul(size * this.zoom).add(this.ctx.getSize().mul(0.5))
+			return dir.mul(size * this.zoom).add(this.ctx.getSize().mul(0.5)).floor()
 		},
 		inverseTranfrom(pos) {
 			var diff = pos.add(this.ctx.getSize().mul(0.5).mul(-1))
@@ -597,6 +597,18 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 		}
 	}
 	Object.assign(data.NodeGraph, {
+		/*
+			Include all:
+
+			NodeGraph.prefabs.numbers(graph)
+			NodeGraph.prefabs.logic(graph)
+			NodeGraph.prefabs.trigonometry(graph)
+			NodeGraph.prefabs.string(graph)
+			NodeGraph.prefabs.color(graph)
+			NodeGraph.prefabs.vector(graph)
+			NodeGraph.prefabs.meta(graph)
+
+		*/
 		prefabs: { //@@@ prefabs
 			numbers: (graph) => {
 				graph.registerType("number", "Number", colors.white, 0, true)
@@ -619,6 +631,7 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 				graph.registerNodeTemplate("Numbers", "bitwiseOr", "|", "$RETURN = [$A | $B]", [[["number", "A"], ["number", "B"]], [["number", "Out"]]])
 				graph.registerNodeTemplate("Numbers", "bitwiseXor", "^", "$RETURN = [$A ^ $B]", [[["number", "A"], ["number", "B"]], [["number", "Out"]]])
 				graph.registerNodeTemplate("Math Functions", "map", "Map", "$RETURN = [Math.map($A,$B,$C,$D,$E)]", [[["number", "Number"], ["number", "I Min"], ["number", "I Max"], ["number", "O Min"], ["number", "O Max"]], [["number", "Out"]]])
+				graph.registerNodeTemplate("Math Functions", "random", "Random", "$RETURN = [Math.random(1,false)]",[[],[["number","Output"]]])
 			},
 			logic: (graph) => {
 				graph.registerType("bool", "Boolean", colors.orange, false, true, { "number": "$INPUT ? 1 : 0" }, { "number": "$INPUT != 0" })
@@ -637,8 +650,8 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 				}, [(type) => { return [["bool", "Choice"], [type, "A"], [type, "B"]] }, (type) => [[type, "Out"]]])
 				graph.registerNodeTemplate("Logic", "greaterThan", ">", "$RETURN = [$A > $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
 				graph.registerNodeTemplate("Logic", "lowerThan", "<", "$RETURN = [$A < $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
-				graph.registerNodeTemplate("Logic", "greaterThanOrEquals", ">=", "$RETURN = [$A => $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
-				graph.registerNodeTemplate("Logic", "lowerThanOrEquals", "<=", "$RETURN = [$A =< $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
+				graph.registerNodeTemplate("Logic", "greaterThanOrEquals", ">=", "$RETURN = [$A >= $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
+				graph.registerNodeTemplate("Logic", "lowerThanOrEquals", "<=", "$RETURN = [$A <= $B]", [[["number", "A"], ["number", "B"]], [["bool", "Out"]]])
 			},
 			trigonometry: (graph) => {
 				graph.registerNodeTemplate("Trigonometry", "PI", "π", "$RETURN = [Math.PI]", [[], [["number", "PI"]]])
@@ -653,8 +666,8 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 			},
 			string: (graph) => {
 				graph.registerType("string", "String", colors.green, "", true, { "number": "parseFloat($INPUT)" }, { "number": "$INPUT.toString()", "bool": "$INPUT.toString()" })
-				graph.registerNodeTemplate("String", "concat", "Concat", "$RETURN = $A + $B", [[["string", "A"], ["string", "B"]], [["string", "Output"]]])
-				graph.registerNodeTemplate("String", "index", "Index", "$RETURN = $A[$B]", [[["string", "Input"], ["number", "Position"]], [["string", "Output"]]])
+				graph.registerNodeTemplate("String", "concat", "Concat", "$RETURN = [$A + $B]", [[["string", "A"], ["string", "B"]], [["string", "Output"]]])
+				graph.registerNodeTemplate("String", "index", "Index", "$RETURN = [$A[$B]]", [[["string", "Input"], ["number", "Position"]], [["string", "Output"]]])
 
 			},
 			color: (graph) => {
@@ -691,19 +704,28 @@ B.module.init("nodeGraph", 0, ["canvas"], () => {
 				graph.registerNodeTemplate(category, "lerp", "Lerp", "$RETURN = [$A.lerp($B,$C)]", [[[type, "Start"], [type, "End"], ["number", "Frac"]], [[type, "Output"]]])
 			},
 			meta: (graph) => {
-				graph.registerType("untyped", "Untyped", colors.brown, "null", false, {}, {})
+				var knownTypes = ["number", "string", "color", "vector", "bool"]
+				graph.registerType("untyped", "Untyped", colors.brown, "null", false, knownTypes.map(v => { return { key: v, value: "$INPUT" } }).toObject(), knownTypes.map(v => { return { key: v, value: "$INPUT" } }).toObject())
 				graph.registerNodeTemplate("Meta", "eval", "Eval", {
 					generator: () => "{let arg = $B; $RETURN = [eval($A)]; }",
-					supported: ["number", "string", "color", "vector"]
+					supported: knownTypes
 				}, [(type) => [["string", "Code"], [type, "arg"]], [["untyped", "Out"]]])
 				graph.registerNodeTemplate("Meta", "cast", "Cast", {
 					generator: () => "$RETURN = [$A]",
-					supported: ["number", "string", "color", "vector"]
+					supported: knownTypes
 				}, [[["untyped", "Source"]], (type) => [[type, "Out"]]])
 				graph.registerNodeTemplate("Meta", "box", "Box", {
 					generator: () => "$RETURN = [$A]",
-					supported: ["number", "string", "color", "vector"]
+					supported: knownTypes
 				}, [(type) => [[type, "Source"]], [["untyped", "Out"]]])
+				graph.registerNodeTemplate("Meta", "convert", "Convert", {
+					generator: (type) => {
+						if (type == "string") return "$RETURN = [B.toString($A)]"
+						else if (type == "number") return "if (typeof $A == 'bool') {$RETURN = [$A == true]} else {$RETURN = [parseFloat($A)]}"
+						else if (type == "bool") return "$RETURN = [$A == true]"
+					},
+					supported: ["number","string","bool"]
+				}, [[["untyped","Source"]],(type)=>[[type,"Converted"]]])
 			}
 		}
 	})

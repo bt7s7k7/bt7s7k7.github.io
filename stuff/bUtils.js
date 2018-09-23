@@ -1,4 +1,9 @@
-﻿B = {};
+﻿/*
+ * bUtils
+ * Copyright (C) 2018 Branislav Trstenský
+ */
+
+B = {};
 if (typeof require == "undefined" && typeof self != "undefined" && typeof process == "undefined") {
 	console.group("Init")
 	B.isWorker = typeof document == "undefined" || typeof window == "undefined"
@@ -97,7 +102,9 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		B.sincE = []
 		B.sincECheck = []
 		B.l = {}
-
+		if (!(window.location.pathname + ":bData" in localStorage)) {
+			B.lStorage = {sinc:{},data:{}}
+		}
 		try {
 			B.lStorage = JSON.parse(localStorage[window.location.pathname + ":bData"])
 		} catch(err) {
@@ -110,7 +117,7 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			var serch = location.search.substring(1).split("&")
 			for (i=0;i<serch.length;i++) {
 				var explo = serch[i].split("=")
-				B.get[explo[0]] = explo[1]
+				B.get[decodeURIComponent(explo[0])] = decodeURIComponent(explo[1])
 			}
 		}
 		
@@ -134,6 +141,12 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 				this.style.position = "absolute"
 				this.style.left = pos[0] + "px"
 				this.style.top = pos[1] + "px"
+			}
+
+			Element.prototype.setAttributes = function (attrs, innerText = undefined) {
+				attrs.toArray().forEach(v => this[v.key] = v.value)
+				if (innerText) this.innerText = innerText
+				return this
 			}
 			
 			Window.prototype.getSize = function() {
@@ -958,13 +971,10 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 			this.modalWindow.delete()
 		}
 		var bg = document.createElement("div")
-		bg.style = "position: fixed; top: 0px; left: 0px; background-color: rgba(0,0,0,0.5);width:100%;height:100%"
+		bg.style = "position: fixed; top: 0px; left: 0px; background-color: rgba(0,0,0,0.5);width:100%;height:100%;display:flex;align-items: center;justify-content: center"
 		document.body.appendChild(bg)
 		var window = document.createElement("div")
 		window.style.backgroundColor = bgColor
-		window.style.position = "absolute"
-		window.style.top = "50%"
-		window.style.left = "50%"
 		window.style.minWidth = "10px"
 		window.style.minHeight = "10px"
 		window.style.padding = "10px 10px 10px 10px"
@@ -976,7 +986,62 @@ if (typeof require == "undefined" && typeof self != "undefined" && typeof proces
 		this.modalWindow = window
 		return window
 	}
-	
+
+	B.createObjectView = function (target) {
+		var container = document.createElement("code")
+		container.style.padding = "10px 10px 10px 10px"
+		container.style.display = "block"
+		var write = (text, color = "black") => {
+			container.appendChild(document.createElement("pre").setAttributes({ style: "color: " + color + "; display: inline" }, text))
+		}
+		var indentLevel = 0
+		var parse = (object) => {
+			if (typeof object == "object") {
+				if (object instanceof Array) {
+					write("[", "green")
+					container.appendChild(document.createElement("br"))
+					indentLevel++
+					object.forEach((v, i, a) => {
+						write("  ".repeat(indentLevel)) 
+						parse(v)
+					})
+					indentLevel--
+					write("  ".repeat(indentLevel) + "]", "green")
+				} else {
+					write("{", "green")
+					container.appendChild(document.createElement("br"))
+					indentLevel++
+					object.toArray().forEach((v) => {
+						write("  ".repeat(indentLevel) + v.key + ":") 
+						parse(v.value)
+					})
+					indentLevel--
+					write("  ".repeat(indentLevel) + "}", "green")
+				}
+			} else {
+				write(typeof object == "undefined" ? "undefined" : JSON.stringify(object),typeof object == "string" ? "green" : (typeof object == "number" ? "purple" : "brown"))
+			}
+			container.appendChild(document.createElement("br"))
+		}
+
+
+		parse(target)
+		return container
+	}
+
+	B.request = function (url) {
+		return new Promise((res, rej) => {
+			var req = new XMLHttpRequest()
+			req.addEventListener("load", (ev) => {
+				res(req)
+			})
+			req.addEventListener("error", rej)
+			req.open("GET", url)
+			req.send()
+		})
+
+	}
+
 } else {
 	// @@@node
 	B.isNode = true
@@ -1529,6 +1594,14 @@ B.spreadFunction = function(step,done,persist = {},stepTime = 17,updateFunc = ()
 	}
 }
 
+B.toString = function (thing = B) {
+	if (thing == this) return "[object B]"
+	if (typeof thing == "undefined") return "undefined"
+	else if (typeof thing == "null") return "null"
+	else if (typeof thing.toString == "function") return thing.toString()
+	else return Object.prototype.toString.apply(thing)
+}
+
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
 //                                                                 PROTOTYPES
 //-----------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1908,6 +1981,14 @@ Array.prototype.countContent = function (content) {
 
 Array.prototype.clamp = function (max, min) {
 	return this.map((v,i)=>v.clamp(max[i],min[i]))
+}
+
+Array.prototype.toObject = function () {
+	var ret = {}
+	this.forEach(v => {
+		ret[v.key] = v.value
+	})
+	return ret
 }
 
 // @@@endArray
@@ -2391,7 +2472,14 @@ if (!B.isNode) {
 		
 	}
 	
-	
+	MouseEvent.prototype.getPos = function () {
+		var rect = this.target.getBoundingClientRect()
+		return [
+			this.screenX - rect.left,
+			this.screenY - rect.top - 100
+		]
+	}
+
 } //@@@notNode
 
 String.prototype.removeWhitespace = String.prototype.trim
@@ -2419,7 +2507,7 @@ Object.prototype.copy = function () {
 }
 
 Object.prototype.toArray = function () {
-	ret = []
+	var ret = []
 	this.forEach((v,i)=>{
 		ret.push({key:i,value:v})
 	})
@@ -2431,7 +2519,7 @@ Object.prototype.transform = function (func) {
 }
 
 Object.prototype.filter = function (callback) {
-	ret = {}
+	var ret = {}
 	this.forEach((v,i)=>{
 		if (callback(v,i,this)) ret[i] = v
 	})
@@ -2547,6 +2635,16 @@ Function.prototype.promise = function(...args) {
 		})
 	})
 }
+
+Function.prototype.promiseNCS = function (...args) {
+	return new Promise((resolve, reject) => {
+		this(...args, (err, ...secArgs) => {
+			if (err) return reject(err)
+			resolve(secArgs)
+		})
+	})
+}
+
 
 choice = function choice (value,...choices) {
 	var pairs = []

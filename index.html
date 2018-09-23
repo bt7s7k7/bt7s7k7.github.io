@@ -3,157 +3,197 @@
 	<script src="stuff/bUtils.js"></script>
 	<script src="stuff/canvas.js"></script>
 	<link rel="stylesheet" type="text/css" href="stuff/btStyle.css">
+	<link rel="stylesheet" type="text/css" href="stuff/newStyle.css">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<script>
-		var galleryList = [
-			"1.png",
-			"2.png",
-			"3.png",
-			"4.jpg",
-			"5.png",
-			"6.png",
-			"7.png",
-			"8.png",
-			"9.bmp",
-			"10.png",
-			"11.jpg",
-			"12.png"
-		]
-
-		var galleryImgs = []
-
-		var galleryID = 0;
-		var galleryTime = 2000
-		var lastGalleryTime = 0
-		var gallUpdatesPossible = false
-		var gallAnimTime = 100
+		var galleryIndex = 0
+		/**
+		  * @typedef {{ name: string, url: string, series: string }} ArticleDefinition
+		  * @type {ArticleDefinition[]}
+		  */
+		var articles = []
+		/** @type {string[]} */var articleSeries = []
+		/** @type {string}*/ var articleSeriesSelected = null
+		var isShowingSeries = false
 
 		function setup() {
-			lastGalleryTime = Date.now()
-			var done = 0
-			galleryList.forEach((v, i) => {
-				galleryImgs[i] = document.createElement("img")
-				galleryImgs[i].src = "gallery/" + v
-				galleryImgs[i].addEventListener("load", () => {
-					done++
-					if (done >= galleryList.length) {
-						gallUpdatesPossible = true;
-						lastGalleryTime = Date.now()
+			B.request("./gallery/list.json").then((/** @type {XMLHttpRequest} */request) => {
+				var text = request.responseText
+				var array = JSON.parse(text)
+				array.forEach((v) => {
+					var td = document.createElement("td")
+					td.setAttributes({ style: "border:none; width:100vw; position: relative; max-height: 50px" })
+					var img = document.createElement("img")
+					var div = document.createElement("div")
+					div.style = `display: flex;
+								 align-items: center;
+								 justify-content: center;`
+					img.setAttributes({
+						style: "max-width:100%;max-height: 80vh;display:block;",
+						src: v
+					})
+					div.appendChild(img)
+					td.appendChild(div)
+					E.galleryParent.appendChild(td)
+				})
+
+				E.galleryParent.style.width = array.length + "00%"
+				E.galleryParentParent.style.width = array.length + "00%"
+
+				setInterval(() => {
+					galleryIndex++;
+					if (galleryIndex >= array.length) galleryIndex = 0;
+					E.galleryParentParent.style.right = galleryIndex + "00%"
+				}, 2000)
+			})
+
+			B.request("./projectList.json").then((request) => {
+				/**
+				 * @typedef {{ name: string, url: string }} ProjectDefinition
+				 * @type {ProjectDefinition[]}
+				 */
+				var array = JSON.parse(request.responseText)
+				array.forEach(v => {
+					var div = document.createElement("a")
+					div.style = "padding: 10px; margin-bottom: 10px"
+					div.classList.add("block", "buttonLike")
+					div.href = v.url
+					div.innerText = v.name
+					E.projectParent.appendChild(div)
+				})
+			})
+
+			B.request("./articleList.json").then((request) => {
+				
+				var array = JSON.parse(request.responseText)
+				articles = array
+
+				articles.forEach(v => {
+					if (v.series) {
+						if (articleSeries.indexOf(v.series) == -1) {
+							articleSeries.push(v.series)
+						}
 					}
 				})
+
+				rearticle()
 			})
 		}
 
-		function update() {
-			if (gallUpdatesPossible) {
-				var timeDelta = Date.now() - lastGalleryTime
-				if (E.gallery.src != galleryImgs[galleryID].src) {
-					E.gallery.src = galleryImgs[galleryID].src
-				}
-				var frac = 1
-				var currImg = galleryImgs[galleryID]
-
-				if (timeDelta < gallAnimTime) {
-					frac = timeDelta / gallAnimTime
-				} else if (timeDelta > galleryTime - gallAnimTime) {
-					frac = 1 - (timeDelta - (galleryTime - gallAnimTime)) / gallAnimTime
-				}
-
-				E.gallery.setSize([((window.getSize()[1] - 100) * 0.75) * (currImg.naturalWidth / currImg.naturalHeight) * frac, ((window.getSize()[1] - 100) * 0.75)])
-
-				if (timeDelta > galleryTime) {
-					galleryID = Math.overflow(galleryID + 1, 0, galleryImgs.length - 1)
-					lastGalleryTime = Date.now()
-				}
+		function rearticle() {
+			while (E.articleParent.childNodes.length > 0) {
+				E.articleParent.removeChild(E.articleParent.childNodes[0])
 			}
+
+			if (isShowingSeries) {
+				E.articleHeader.innerText = "Série"
+				E.articleButton.innerText = "Späť na články"
+				E.articleButton.onclick = () => {
+					isShowingSeries = false
+					articleSeriesSelected = null
+					rearticle()
+				}
+
+				articleSeries.forEach(v => {
+					var div = document.createElement("div")
+					div.style = "padding: 10px; margin-bottom: 10px"
+					div.classList.add("block", "buttonLike")
+					div.innerText = v + " [" + articles.filter(w=>w.series == v).length + "]"
+					div.onclick = () => {
+						articleSeriesSelected = v
+						isShowingSeries = false
+						rearticle()
+					}
+					E.articleParent.appendChild(div)
+				})
+			} else {
+				
+				E.articleHeader.innerText = articleSeriesSelected ? "Séria " + articleSeriesSelected : "Články"
+				E.articleButton.innerText = articleSeriesSelected ? "Späť na série" : "Zoskupiť podla sérií"
+				E.articleButton.onclick = () => {
+					isShowingSeries = true
+					rearticle()
+				}
+
+				articles.filter(v => {
+					if (articleSeriesSelected) {
+						return v.series == articleSeriesSelected
+					} else return true
+				}).forEach(v => {
+					var div = document.createElement("a")
+					div.style = "padding: 10px; margin-bottom: 10px"
+					div.classList.add("block", "buttonLike")
+					div.innerText = (v.series ? "[" + v.series + "] " : "") + v.name
+					div.href = "./article.html?url=" + encodeURIComponent(v.url) + "&name=" + encodeURIComponent(v.name)
+					E.articleParent.appendChild(div)
+				})
+			} 
 		}
 
-		function gallNext() {
-			lastGalleryTime = galleryTime - gallAnimTime
-		}
 	</script>
 
 </head>
 <body>
-	<div style="position:absolute;top:0px;left:0px;background-color:#0d0d0d;width:100%;height:100px">
-		<img src="stuff/logo.png" style="position:absolute;top:5px;left:5px;height:90px;width:90px" />
-		<span style="color:yellow;font-family:Arial;font-size:50px;position:absolute;top:25px;left:110px">bt7s7k7 / Bt SK / Branislav Trstenský</span>
-	</div>
-	<div style="position:absolute;top:100px;left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;text-align:center">
-		<img id="gallery" style="position:relative;top:50%;transform:translateY(-50%)" onclick="gallNext()" />
-	</div>
-	<div style="position:absolute;top:100%;left:0px;background-color:#0d0d0d;width:calc(100% - 30px);height:90px;padding: 25px 5px 5px 25px">
-		<span style="text-align:left;color:yellow;font-size:50px">Stránky</span>
-		<div style="position:absolute;top:0px;left:calc(100%);text-wrap:none;transform:translateX(-100%);width:calc(90px + 50px + 90px)">
-			<a href="https://github.com/bt7s7k7"><img src="stuff/github.png" style="height:90px;width:90px" /></a>
-			<div style="width:25px;height:25px;display:inline-block"> </div>
-			<a href="https://www.youtube.com/channel/UC6L4aSMM7i36iaLEsK3NThQ"><img src="https://lh3.googleusercontent.com/4TR7dlSEhUdySTcbWWmSdTqgeoBkMntBcDw1LWqKlI9wSZOk1rqjcgFE6w1hyzFDbQM=w300" style="height:90px;width:90px" /></a>
-		</div>
-	</div>
-	<!--<div style="position:absolute;top:calc(100px + 100%);left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;">
-		<ul style="color:yellow;text-decoration:none;font-weight:700;font-size:24px">
-			<li><a href="platform.html" style="color:inherit;text-decoration:inherit">Platform</a></li>
-			<li><a href="cpu.html" style="color:inherit;text-decoration:inherit">CPU Simulator</a></li>
-			<li><a href="animation.html" style="color:inherit;text-decoration:inherit">Animator</a></li>
-			<li><a href="fractal.html" style="color:inherit;text-decoration:inherit">Fractal</a></li>
-			<li><a href="3dMaze.html" style="color:inherit;text-decoration:inherit">Bludisko</a></li>
-		</ul>
-	</div>-->
-	<div style="position:absolute;top:calc(100px + 100%);left:0px;width:100%;height: calc(100% - 100px);background-color:#0b161d;display:grid;grid-template-columns:repeat(3,calc(100% / 3));grid-template-rows:repeat(2,calc(50%));overflow:no-display">
-		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
-			<a style="color:inherit;text-decoration:inherit" href="platform.html">
-				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
-					<img style="width: 100%;height:auto;image-rendering:pixelated" src="otherImages/platform.png" />
-				</div>
-				<div style="width:100%;padding-top:10px;">
-					Platform
-				</div>
-			</a>
-		</div>
+	<section class="fill flowParent flowTypeColumn" style="height:100vh">
+		<header>
+			<img class="boxIllustration" src="./stuff/logo.png" />
+			<div>
+				Branislav Trstenský - bt7s7k7
+			</div>
+		</header>
+		<main class="flowFillSpace overflowHidden">
+			<div class="fill overflowHidden">
+				<!--<div class="size100P inlineBlock"></div>
+				<div class="size100P inlineBlock" style="background:aqua"></div>-->
+				<table style="height: 100%;width:200%; border: none; position: relative; transition: right 0.5s ease-in-out; right: 0" id="galleryParentParent">
+					<tr style="height: 100%;width:200%; border: none" id="galleryParent">
+						<!--
+							<td style="border:none; width:100vw"></td>
+							<td style="background-color:aqua;border:none; width:100vw"></td>
+							-->
+					</tr>
+				</table>
 
-		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
-			<a style="color:inherit;text-decoration:inherit" href="cpu.html">
-				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
-					<img style="width: 100%;height:auto" src="otherImages/cpuSim.bmp" />
-				</div>
-				<div style="width:100%;padding-top:10px;">
-					CPU Simulátor
-				</div>
-			</a>
-		</div>
 
-		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
-			<a style="color:inherit;text-decoration:inherit" href="fractal.html">
-				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
-					<img style="width: 100%;height:auto" src="otherImages/avandgard.png" />
-				</div>
-				<div style="width:100%;padding-top:10px;">
-					Fractal
-				</div>
-			</a>
-		</div>
+			</div>
+		</main>
 
-		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
-			<a style="color:inherit;text-decoration:inherit" href="animation.html">
-				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
-					<img style="width: 100%;height:auto" src="otherImages/anim.bmp" />
-				</div>
-				<div style="width:100%;padding-top:10px;">
-					Animátor
-				</div>
-			</a>
+	</section>
+	<section class="fill flowParent flowTypeColumn" style="position:absolute;top:100%;width:100%;height:100%">
+		<header style="text-align:center">
+			Projekty
+		</header>
+		<main class="flowFillSpace canScroll" id="projectParent">
+		</main>
+	</section>
+	<section class="fill flowParent flowTypeColumn" style="position:absolute;top:200%;width:100%;height:100%">
+		<header style="text-align:center" id="articleHeader">
+			Články
+		</header>
+		<div class="buttonLike" style="position:absolute;top:10px;left:10px;font-size: 2vh" id="articleButton">
+			
 		</div>
-
-		<div style="text-align:center;color:white;font-size:25px;text-decoration:none">
-			<a style="color:inherit;text-decoration:inherit" href="3dMaze.html">
-				<div style="width:100%;height:calc(50% - 50px);text-align:center;overflow:hidden;text-align:center">
-					<img style="width: 100%;height:auto;position:relative;bottom:100px" src="otherImages/maze.png" />
-				</div>
-				<div style="width:100%;padding-top:10px;">
-					Bludisko
-				</div>
+		<main class="flowFillSpace canScroll" id="articleParent">
+		</main>
+	</section>
+	<section class="fill flowParent flowTypeColumn" style="position:absolute;top:300%;width:100%;height:100%">
+		<header style="text-align:center">
+			Kontakt a content
+		</header>
+		<main class="flowFillSpace canScroll">
+			<a class="buttonLike block" style="padding: 10px; margin-bottom: 10px; line-height: 30px;vertical-align: middle; text-decoration: none" href="https://www.youtube.com/channel%2FUC6L4aSMM7i36iaLEsK3NThQ">
+				<img src="https://www.gstatic.com/images/icons/material/product/2x/youtube_64dp.png" style="max-height:30px;position: relative; top: 8px"/>
+				Youtube
 			</a>
-		</div>
-
-	</div>
+			<a class="buttonLike block" style="padding: 10px; margin-bottom: 10px; line-height: 30px;vertical-align: middle; text-decoration: none" href="https://github.com/bt7s7k7">
+				<img src="https://camo.githubusercontent.com/7710b43d0476b6f6d4b4b2865e35c108f69991f3/68747470733a2f2f7777772e69636f6e66696e6465722e636f6d2f646174612f69636f6e732f6f637469636f6e732f313032342f6d61726b2d6769746875622d3235362e706e67" style="max-height:30px;position: relative; top: 8px; filter: invert(100%)"/>
+				GitHub
+			</a>
+			<a class="buttonLike block" style="padding: 10px; margin-bottom: 10px; line-height: 30px;vertical-align: middle; text-decoration: none" href="https://www.facebook.com/profile.php?id=100010273215405">
+				<img src="https://static.xx.fbcdn.net/rsrc.php/yo/r/iRmz9lCMBD2.ico" style="max-height:30px;position: relative; top: 8px"/>
+				Facebook
+			</a>
+		</main>
+	</section>
 </body>
 </html>

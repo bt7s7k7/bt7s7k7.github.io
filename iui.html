@@ -84,19 +84,20 @@
 				if (bootingTime == -1) {
 					ctx.setColor(colors.black).fill()
 				}
-				if (bootingTime < 101 && bootingTime > -1) {
-					ctx.setColor(colors.black).fill()
-					bootingTime++
+				if (bootingTime < 110 && bootingTime > -1) {
+					ctx.setColor(colors.black).fill().setColor(colors.yellow)
+					bootingTime += 1
 					let segL = 1
-					Array.getFilled(200 / segL).forEach((v,i)=>{
+					ctx.strokeEllipse(ctx.getSize().mul(0.5), [1, 1].mul(200), 10, [(Math.PI * 2.25) * (bootingTime / 100 * 1) + (Math.PI * 0.25), (Math.PI) * (bootingTime / 100 * 2)])
+					/*Array.getFilled(200 / segL).forEach((v,i)=>{
 						var g = 200 / segL - i
 						ctx.setColor(colors.yellow)
-						ctx.ellipse(ctx.getSize().mul(0.5),[1,1].mul(g * segL + 5),[(Math.PI * 2) * (bootingTime / 100) + (Math.PI * 0.25),(Math.PI * 2) * (bootingTime / 100)])
+						
 						ctx.setColor(colors.black)
 						ctx.ellipse(ctx.getSize().mul(0.5),[1,1].mul(g * segL - segL))
-					})
+					})*/
 				}
-				if (bootingTime == 101) {
+				if (bootingTime == 110) {
 					iui.layers.ground.push((gui)=>{
 						wins.drawWindows(gui)
 						wins.drawTaskbar([30,ctx.getSize()[1] - 30],[ctx.getSize()[0],30],colors.grey,colors.black,gui)

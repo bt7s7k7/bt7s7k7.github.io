@@ -43,8 +43,6 @@
 	height:100%;
 	width:100%;
 	position:absolute;
-	top:0px;
-	height:0px
 }
 
 .S10W {
@@ -62,7 +60,7 @@
 
 table,td, th, tr {
 	border: 1px black solid;
-	margin : 0px;
+	margin : 0;
 	border-collapse: collapse;
 }
 
