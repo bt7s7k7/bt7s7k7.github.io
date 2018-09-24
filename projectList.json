@@ -18,5 +18,9 @@
 	{
 		"name": "IUI - Náčrt operačného systému vytvoreného v čistom JavaScripte",
 		"url": "./iui.html"
+	},
+	{
+		"name": "HexMatch - Procedurálne generovaná puzzle hra",
+		"url": "https://bt7s7k7.github.io/HexMatch/"
 	}
 ]
