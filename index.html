@@ -124,7 +124,7 @@
 					div.style = "padding: 10px; margin-bottom: 10px"
 					div.classList.add("block", "buttonLike")
 					div.innerText = (v.series ? "[" + v.series + "] " : "") + v.name
-					div.href = "./article.html?name=" + encodeURIComponent(v.name)
+					div.href = "./article.html?index=" + articles.indexOf(v)
 					E.articleParent.appendChild(div)
 				})
 			} 
