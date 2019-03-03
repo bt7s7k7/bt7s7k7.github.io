@@ -29,11 +29,8 @@
 				B.request(curr.url).then((request) => {
 					E.articleParent.innerHTML = request.responseText
 				})
-				var header = document.createElement("div")
-				E.articleParent.appendChild(header)
-				header.style.borderBottom = "1px solid grey"
-				header.appendChild(document.createTextNode(curr.name + " : " + curr.series))
-				header.style.marginBottom = "10px"
+				
+				E.articleHeader.innerText = curr.name;
 				targetIndex = index
 				E.title.innerText = "Článok :: " + curr.name;
 
