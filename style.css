@@ -49,3 +49,14 @@ body {
 .page-height {
 	height: 100vh;
 }
+
+.project-button {
+	margin-bottom: 4px;
+	text-align: left !important
+}
+
+#projectContainer {
+	display: flex;
+	flex-direction: column;
+	flex-wrap: wrap;
+}

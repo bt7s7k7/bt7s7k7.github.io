@@ -36,6 +36,9 @@
 			"https://lh3.googleusercontent.com/9fDXUErG_m6HzPOFq99kkIbBt6yvPqhcfhugkcVme4ta2tWK8CkyR6TxSDG0jc2iw-W0BczyWa3PoGPFLrcTUSnftaBV9PDb9ImwSDNwT4yp7HdjnCahaKY_KqXSO-lW30aRGIfWHx24y_9JY3audNMqWGflXcpwBEhfLIvSpK9PVc3O5PAK46im8eAN_p6dgX50aO1ybpCNhDXqPZMFvtBKFFUqtgQIiqRQczIG1tUunlsPY39VRngXRPqtg0h-qFR66ltn8u-shNjBryowoZrS06yIakpotQryegJM_x1CtxmLZ6bg9G8QB9WZpbDgORzixYI7IPAN0SG8gG-LwTNbPKkyPptADStSmQWHwnrRPXq8ARbT4HZGYkK1kgF1U4CgMIAjv30O7ynDFRyjQ2jV4OKvKwOv9GjEryXkhVvALR1jUMTEv7cCmVxz2rj94m_T47WIbjlrxeLag6HZDjSAhO8ZVubI1cJQnW1NPbprX04ZQ2U9uBjonXo5KNO8t16Yvao3BxsjpFCoFlABiwebnkhYBrAZvEO_HEoCwUo2lWurDJtKWVmt9CSWuXhKObj_Hf1XRhWvdLtRdM6diA1Mqel7FbfmrkFkdcQGcEbxp4GPrQ-q118foLEzYhkvWdp99K-ciQX5m5FltxknFqQSWaQyB1hq9lSB3gf3jlz8HjInDg19Wqs=w1803-h1015-no",
 			"https://lh3.googleusercontent.com/s1EQ9xgzTLep42o7NX7Yaubai95XuFW6HkaxMt_FfXcHZUyEZ2-pLHzwAdCNoy1uR_D6EccM8e9Fp93-M6gUmccquwqIAyveC9Oj8SoonQcwER1sR-LjVCmMZjETbULnB9CxDzQoPDiq6VmS7CZUjyE3NQJmpiXQEDaSRjMzc0l7DeCLUG6oCazCvg88muj1Nw1XX52ss2sYgWc7_chS7eJhAvgmmeXDARyf4UkU0M-chK4bw4gkD_QFjsMRSNYPgGUticm7vBjuTlSZiyZy72nmaMkz_0Odo4tGdLyopi7kKWvTGpiMPSFAd_aKu9zVQh9NWnG1xY239KmWg_E3c8f5WLgrp7W1QFTqp8Owb83_nXba0NV2-g_V7sn3d7R-J2ypkeT83DCMT7Ze0aFbSd8YdT3DtT8LN0Id32QH2SnGoA3YYzvFoRpDj95EbNwjtEr89A3i52RetRwgq3BCbbDRW3XLpxi8R7BRgNeRSaZzrTdIbvnIRPGXuqGz72WdK9F8bgTdMm2-yBnMoK_ty48mDWRizyAqRT6e1DQ--lEpN9WKv-pmaPy5uPwd2Sc4cRBf9VaEg4-yx2qmKGkZjpnNdkpg5a9JQairb6hVfYJUqcOFKWnOIalGZvYgApVjanYNfxD9fnmLcFIAcb5U98EHVjjAOnHYpZsn2pR9ip7Qo2Yj5xX-AJ0=w571-h1014-no"
 		]
+
+		var projects = [
+		].map(v=>[[/__TEXT/g, v[0]], [/__LINK/g, v[1]]])
 	</script>
 </head>
 <body>
@@ -72,6 +75,16 @@
 				<span class="carousel-control-next-icon" aria-hidden="true"></span>
 				<span class="sr-only">Next</span>
 			</a>
+		</div>
+	</div>
+	<div>
+		<div class="p-5 w-100">
+		<h1>Projects</h1>
+		<div data-automate="projects" id="projectContainer">
+			<a class="btn btn-outline-dark project-button" href="__LINK">
+				__TEXT
+			</a>
+		</div>
 		</div>
 	</div>
 
