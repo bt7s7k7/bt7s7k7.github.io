@@ -38,17 +38,23 @@
 		]
 
 		var projects = [
-		].map(v=>[[/__TEXT/g, v[0]], [/__LINK/g, v[1]]])
+			["HexMatch - Procedurálne generovaná puzzle hra", "https://bt7s7k7.github.io/HexMatch/"],
+			["SmallUtils", "https://bt7s7k7.github.io/SmallUtils/"],
+			["Electron Pass - Top down arena strielačka", "https://bt7s7k7.github.io/ElectronPass/"],
+			["PTAIFV - Vylepšený animačný program pre ilustácie videí", "https://bt7s7k7.github.io/PTAIFV/"],
+			["Vizualizátor hudby pre hudobné videá", "https://bt7s7k7.github.io/MusicVisualizer/"],
+			["CPU - emulátor procesorovej architektúry", "https://bt7s7k7.github.io/CPU/"]
+		].map(v => [[/__TEXT/g, v[0]], [/__LINK/g, v[1]]])
 	</script>
 </head>
 <body>
 
 	<div class="page-height">
-		<img class="bg-img" src="./headerImg.jpg"/>
+		<img class="bg-img" src="./headerImg.jpg" />
 		<div class="bg-img">
 			<div class="bg-white m-auto row" id="headerCont">
 				<div class="col text-center p-0">
-					<img src="./name.jpg"/>
+					<img src="./name.jpg" />
 				</div>
 				<div class="col text-nowrap" style="">
 					<strong>Branislav Trstenký</strong><br />
@@ -60,7 +66,6 @@
 	<div class="page-height bg-dark">
 		<div id="carouselExampleIndicators" class="carousel slide h-100" data-ride="carousel" data-interval="5000" data-pause="false">
 			<ol class="carousel-indicators" data-automate>
-				
 			</ol>
 			<div class="carousel-inner p-5 h-100" data-automate="imgs">
 				<div class="carousel-item w-100 h-100 __ACTIVE">
@@ -79,12 +84,12 @@
 	</div>
 	<div>
 		<div class="p-5 w-100">
-		<h1>Projects</h1>
-		<div data-automate="projects" id="projectContainer">
-			<a class="btn btn-outline-dark project-button" href="__LINK">
-				__TEXT
-			</a>
-		</div>
+			<h1>Projects</h1>
+			<div data-automate="projects" id="projectContainer">
+				<a class="btn btn-outline-dark project-button" href="__LINK">
+					__TEXT
+				</a>
+			</div>
 		</div>
 	</div>
 
