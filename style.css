@@ -52,11 +52,23 @@ body {
 
 .project-button {
 	margin-bottom: 4px;
-	text-align: left !important
+	text-align: left !important;
+	position: relative
 }
 
 .project-container {
 	display: flex;
 	flex-direction: column;
 	flex-wrap: wrap;
+}
+
+.project-button > img {
+	position: absolute;
+	max-height: 25px;
+	top: 6px;
+	left: 7px;
+}
+
+.project-button > div {
+	margin-left: 25px
 }
