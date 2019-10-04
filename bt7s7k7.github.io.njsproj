@@ -29,6 +29,9 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="automation.js">
+      <SubType>Code</SubType>
+    </Content>
     <Content Include="favicon.ico" />
     <Content Include="headerImg.jpg" />
     <Content Include="index.html">
