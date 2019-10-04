@@ -1,3 +1,51 @@
 body {
 	margin: 0;
 }
+
+.bg-img {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+	display: flex;
+	align-items: center;
+}
+
+#headerCont > .text-nowrap {
+	font-size: 3vw;
+}
+
+#headerCont > div > img {
+	width: 10vw;
+}
+
+@media(max-width: 800px) {
+	#headerCont > .text-nowrap {
+		font-size: 24px;
+	}
+
+	#headerCont > div > img {
+		width: 80px;
+	}
+}
+
+@media(max-width: 314px) {
+	#headerCont > .text-nowrap {
+		font-size: 24px;
+		text-align: center;
+	}
+	
+	#headerCont {
+		width: 100%;
+	}
+
+	#headerCont > div > img {
+		width: 80px;
+	}
+}
+
+.page-height {
+	height: 100vh;
+}

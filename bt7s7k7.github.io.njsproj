@@ -29,11 +29,16 @@
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="favicon.ico" />
+    <Content Include="headerImg.jpg" />
     <Content Include="index.html">
       <SubType>Code</SubType>
     </Content>
-    <Content Include="package.json" />
+    <Content Include="name.jpg" />
     <Content Include="README.md" />
+    <Content Include="style.css">
+      <SubType>Code</SubType>
+    </Content>
   </ItemGroup>
   <Import Project="$(VSToolsPath)\Node.js Tools\Microsoft.NodejsToolsV2.targets" />
 </Project>
